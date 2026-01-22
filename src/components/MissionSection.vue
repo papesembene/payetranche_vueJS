@@ -1,6 +1,6 @@
 <script setup>
 import { Heart, ShieldCheck, Headphones, PenLine, TrendingUp } from 'lucide-vue-next';
-import { statistics, features } from '../data/mockData';
+
 
 const iconComponents = {
   heart: Heart,

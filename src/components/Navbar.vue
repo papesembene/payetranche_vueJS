@@ -109,8 +109,17 @@ onUnmounted(() => {
 
         <!-- Auth Links & Mobile Menu Button -->
         <div class="flex items-center gap-4">
-          <router-link 
-            to="/login" 
+          <router-link
+            to="/register"
+            :class="[
+              'hidden md:block hover:text-teal-500 transition-colors font-medium',
+              isScrolled ? 'text-gray-700' : 'text-white/90 hover:text-white'
+            ]"
+          >
+            S'inscrire
+          </router-link>
+          <router-link
+            to="/login"
             :class="[
               'hidden md:block hover:text-teal-500 transition-colors font-medium',
               isScrolled ? 'text-gray-700' : 'text-white/90 hover:text-white'
@@ -169,9 +178,15 @@ onUnmounted(() => {
         >
           Contact
         </a>
-        <div class="pt-3 border-t border-gray-200">
-          <router-link 
-            to="/login" 
+        <div class="pt-3 border-t border-gray-200 space-y-3">
+          <router-link
+            to="/register"
+            class="block py-3 text-gray-700 hover:text-teal-500 font-medium transition-colors"
+          >
+            S'inscrire
+          </router-link>
+          <router-link
+            to="/login"
             class="block py-3 text-gray-700 hover:text-teal-500 font-medium transition-colors"
           >
             Se connecter
