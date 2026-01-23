@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia';
 import { subscriptionPlans, checkLimits, hasFeature } from '../data/subscriptionPlans.js';
+import { SessionService } from '../services/session.service.js';
 
 export const useUserStore = defineStore('user', {
   state: () => ({
@@ -87,12 +88,24 @@ export const useUserStore = defineStore('user', {
 
   actions: {
     // Mise à jour de l'utilisation (lors d'ajout de clients/paiements)
+    // Now also persists changes to localStorage and SessionService
     updateUsage(type, increment = 1) {
       if (!this.user) return;
       if (type === 'clients') {
         this.user.usage.clients += increment;
       } else if (type === 'payments') {
         this.user.usage.payments += increment;
+      }
+      // Persist the updated usage stats to localStorage and SessionService
+      this._persistUserData();
+    },
+
+    // Helper method to persist user data to localStorage and SessionService
+    _persistUserData() {
+      if (this.user) {
+        localStorage.setItem('user_data', JSON.stringify(this.user));
+        localStorage.setItem('auth_user', JSON.stringify(this.user));
+        SessionService.saveSession(this.user);
       }
     }
   }

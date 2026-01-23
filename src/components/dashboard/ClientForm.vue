@@ -4,6 +4,7 @@ import { X, User, Phone, Home, CheckCircle, DollarSign } from 'lucide-vue-next';
 import Swal from 'sweetalert2';
 import { clientService } from '../../services/client.service.js';
 import { useUserStore } from '../../stores/user.js';
+import { useUser } from '../../composables/useUser.js';
 
 const props = defineProps({
   show: {
@@ -19,6 +20,7 @@ const props = defineProps({
 const emit = defineEmits(['close', 'saved', 'addPayment']);
 
 const userStore = useUserStore();
+const { updateUsage } = useUser();
 
 const form = ref({
   name: '',
@@ -132,8 +134,10 @@ const submitForm = async () => {
       // Update existing client
       savedClient.value = await clientService.updateClient(props.client.id, clientData);
     } else {
-      // Create new client
+      // Create new client - increment usage via composable (which persists changes)
       savedClient.value = await clientService.createClient(clientData);
+      // Update the usage counter and persist to localStorage
+      updateUsage('clients', 1);
     }
 
     // After saving, show success

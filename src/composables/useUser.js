@@ -276,11 +276,16 @@ const loadUser = async () => {
 };
 
 const updateUsage = (type, increment = 1) => {
+  if (!user.value) return;
+  
   if (type === 'clients') {
     user.value.usage.clients += increment;
   } else if (type === 'payments') {
     user.value.usage.payments += increment;
   }
+  
+  // Persist the updated usage stats immediately
+  persistUserData();
 };
 
 const updateSubscriptionLocally = (updates) => {
