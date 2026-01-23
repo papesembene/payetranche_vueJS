@@ -79,6 +79,11 @@ class ClientService {
         throw new Error('Utilisateur non authentifié');
       }
 
+      // Validation du numéro de téléphone
+      if (!this._validatePhoneNumber(clientData.phone)) {
+        throw new Error('Numéro de téléphone invalide. Veuillez entrer un numéro sénégalais valide.');
+      }
+
       const clientDoc = {
         ...clientData,
         userId,
@@ -89,7 +94,7 @@ class ClientService {
 
       return await firestoreService.createDocument('clients', clientDoc);
     } catch (error) {
-      throw new Error('Erreur lors de la création du client');
+      throw new Error(error.message || 'Erreur lors de la création du client');
     }
   }
 
@@ -163,6 +168,24 @@ class ClientService {
     } catch (error) {
       throw new Error('Erreur lors du calcul des statistiques');
     }
+  }
+
+  /**
+   * Validation du numéro de téléphone sénégalais
+   * @param {string} phoneNumber - Numéro à valider
+   * @returns {boolean} - true si valide
+   */
+  _validatePhoneNumber(phoneNumber) {
+    if (!phoneNumber || phoneNumber.trim() === '') {
+      return false;
+    }
+
+    // Nettoyer le numéro
+    const cleaned = phoneNumber.replace(/\s+/g, '').replace(/^\+221/, '');
+
+    // Vérifier le format sénégalais
+    const validPrefixes = ['70', '71', '75', '76', '77', '78'];
+    return cleaned.length === 9 && validPrefixes.some(prefix => cleaned.startsWith(prefix));
   }
 
   /**

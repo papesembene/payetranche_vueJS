@@ -104,30 +104,32 @@ const handleStepAction = async () => {
     // Validation per step
     if (currentStep.value === 1) {
       if (!form.value.name.trim() || form.value.name.length < 2) {
-        alert('Le nom est requis et doit contenir au moins 2 caractères');
+        alert('Veuillez entrer le nom complet du client (au moins 2 caractères)');
         return;
       }
     }
     if (currentStep.value === 2) {
       const phoneRegex = /^(\+221|221)?[76-8]\d{7}$/;
-      if (!form.value.phone.trim() || !phoneRegex.test(form.value.phone.replace(/\s/g, ''))) {
-        alert('Le téléphone est requis et doit être un numéro sénégalais valide (ex: +221 77 123 45 67)');
+      const cleanPhone = form.value.phone.replace(/\s/g, '');
+      if (!form.value.phone.trim() || !phoneRegex.test(cleanPhone)) {
+        alert('Numéro de téléphone invalide. Exemples valides : 77 123 45 67 ou +221 77 123 45 67');
         return;
       }
     }
     if (currentStep.value === 3) {
       if (!form.value.address.trim()) {
-        alert('L\'adresse est requise');
+        alert('Veuillez entrer l\'adresse du client');
         return;
       }
       if (form.value.totalDebt < 0) {
-        alert('La dette totale ne peut pas être négative');
+        alert('Le montant de la dette ne peut pas être négatif');
         return;
       }
-      if (!rectoPreview.value || !versoPreview.value) {
-        alert('Les photos recto et verso de la carte d\'identité sont requises');
-        return;
-      }
+      // Temporarily disabled - photos are optional
+      // if (!rectoPreview.value || !versoPreview.value) {
+      //   alert('Veuillez ajouter les photos recto et verso de la carte d\'identité');
+      //   return;
+      // }
     }
     nextStep();
   } else {
@@ -145,8 +147,12 @@ const submitForm = async () => {
 
   loading.value = true;
   try {
+    // Nettoyer le numéro de téléphone (enlever +221 et espaces)
+    const cleanPhone = form.value.phone.replace(/\s/g, '').replace(/^\+?221/, '');
+
     const clientData = {
       ...form.value,
+      phone: cleanPhone, // Sauvegarder sans +221
       userId: userStore.user?.id,
       status: 'active',
       createdAt: new Date().toISOString(),
@@ -181,7 +187,7 @@ const submitForm = async () => {
     return savedClient;
   } catch (error) {
     console.error('Erreur sauvegarde client:', error);
-    alert('Erreur lors de la sauvegarde du client');
+    alert(error.message || 'Une erreur est survenue lors de la sauvegarde. Veuillez réessayer.');
   } finally {
     loading.value = false;
   }
@@ -208,22 +214,14 @@ const speak = (text) => {
 };
 
 const uploadToCloudinary = async (file) => {
-  const formData = new FormData();
-  formData.append('file', file);
-  formData.append('upload_preset', 'paytranche_preset'); // Replace with your actual upload preset
-  formData.append('folder', 'paytranche/id_cards');
-
-  const response = await fetch('https://api.cloudinary.com/v1_1/dgllmlwqw/image/upload', {
-    method: 'POST',
-    body: formData
+  // Temporarily disabled - using base64 encoding instead
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      resolve(e.target.result); // Return base64 data URL
+    };
+    reader.readAsDataURL(file);
   });
-
-  if (!response.ok) {
-    throw new Error('Upload failed');
-  }
-
-  const data = await response.json();
-  return data.secure_url;
 };
 
 const closeModal = () => {
