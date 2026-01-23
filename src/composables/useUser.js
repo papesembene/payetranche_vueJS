@@ -2,6 +2,7 @@ import { ref, computed, readonly, watch } from 'vue';
 import { authService } from '../services/auth.service.js';
 import { userService } from '../services/user.service.js';
 import { subscriptionService } from '../services/subscription.service.js';
+import { SessionService } from '../services/session.service.js';
 import { useUserStore } from '../stores/user.js';
 import { subscriptionPlans as defaultPlans } from '../data/subscriptionPlans.js';
 
@@ -116,6 +117,10 @@ const register = async (userData) => {
     if (result.success) {
       user.value = result.user;
       isAuthenticated.value = true;
+      persistUserData(); // Sauvegarder les données après inscription
+      localStorage.setItem('auth_user', JSON.stringify(result.user)); // Sauvegarder aussi auth_user
+      // Sauvegarder aussi la session persistante pour PWA
+      SessionService.saveSession(result.user);
       // Sync with userStore
       const userStore = useUserStore();
       userStore.user = result.user;
@@ -136,6 +141,10 @@ const login = async (credentials) => {
     if (result.success) {
       user.value = result.user;
       isAuthenticated.value = true;
+      persistUserData(); // Sauvegarder les données immédiatement après connexion
+      localStorage.setItem('auth_user', JSON.stringify(result.user)); // Sauvegarder aussi auth_user
+      // Sauvegarder aussi la session persistante pour PWA
+      SessionService.saveSession(result.user);
       // Sync with userStore
       const userStore = useUserStore();
       userStore.user = result.user;
@@ -155,6 +164,11 @@ const logout = async () => {
     await authService.logout();
     user.value = null;
     isAuthenticated.value = false;
+    // Nettoyer le localStorage
+    localStorage.removeItem('auth_user');
+    localStorage.removeItem('user_data');
+    // Nettoyer la session persistante pour PWA
+    SessionService.clearSession();
     // Sync with userStore
     const userStore = useUserStore();
     userStore.user = null;
@@ -252,6 +266,7 @@ const loadUser = async () => {
     const userData = await userService.getProfile();
     user.value = userData;
     isAuthenticated.value = true;
+    persistUserData(); // Sauvegarder après chargement
   } catch (error) {
     console.error('Erreur chargement utilisateur:', error);
     user.value = null;
@@ -283,13 +298,27 @@ const updateSubscriptionLocally = (updates) => {
 // Charger les données utilisateur depuis le localStorage (pour persister les mises à jour)
 const loadPersistedUserData = () => {
   const persistedData = localStorage.getItem('user_data');
+  const authUser = localStorage.getItem('auth_user');
+  
   if (persistedData) {
     try {
       const parsedData = JSON.parse(persistedData);
       user.value = parsedData;
       console.log('✅ Données utilisateur chargées depuis localStorage:', parsedData.name);
     } catch (error) {
-      console.warn('Erreur chargement données persistées:', error);
+      console.warn('❌ Erreur chargement données persistées:', error);
+      localStorage.removeItem('user_data');
+    }
+  } else if (authUser) {
+    // Fallback : charger depuis auth_user si user_data n'existe pas
+    try {
+      const parsedAuth = JSON.parse(authUser);
+      user.value = parsedAuth;
+      localStorage.setItem('user_data', JSON.stringify(parsedAuth));
+      console.log('✅ Utilisateur restauré depuis auth_user:', parsedAuth.name);
+    } catch (error) {
+      console.warn('❌ Erreur chargement auth_user:', error);
+      localStorage.removeItem('auth_user');
     }
   }
 };
@@ -307,6 +336,8 @@ const loadDefaultPlansIfNeeded = () => {
 const persistUserData = () => {
   if (user.value) {
     localStorage.setItem('user_data', JSON.stringify(user.value));
+    // Aussi sauvegarder dans la session persistante pour PWA
+    SessionService.saveSession(user.value);
   }
 };
 
@@ -316,8 +347,21 @@ const initAuth = async () => {
   try {
     // Charger d'abord les plans par défaut pour éviter les erreurs d'affichage
     loadDefaultPlansIfNeeded();
+    
+    // Charger les données persistées depuis localStorage
+    loadPersistedUserData();
 
-    const userData = localStorage.getItem('auth_user');
+    // Essayer de restaurer depuis la session persistante (PWA)
+    const persistedSession = SessionService.getSession();
+
+    let userData = localStorage.getItem('auth_user');
+    if (!userData && persistedSession) {
+      // Si pas de auth_user mais session persistante existe, l'utiliser
+      userData = JSON.stringify(persistedSession.user);
+      localStorage.setItem('auth_user', userData);
+      console.log('✅ Session PWA restaurée depuis session persistante');
+    }
+
     if (userData) {
       try {
         // Charger les données utilisateur depuis localStorage
@@ -330,28 +374,41 @@ const initAuth = async () => {
         userStore.user = parsedUserData;
         userStore.isAuthenticated = true;
 
-        // Vérifier et rafraîchir les données depuis Firebase (pour PWA)
+        // Prolonger la session pour PWA
+        if (persistedSession) {
+          SessionService.renewSession();
+        }
+
+        // Valider le token auprès du serveur de manière asynchrone (sans bloquer)
         try {
-          const freshUserData = await userService.getProfile();
-          if (freshUserData && freshUserData.id === parsedUserData.id) {
-            // Mettre à jour avec les données fraîches
-            user.value = freshUserData;
-            localStorage.setItem('auth_user', JSON.stringify(freshUserData));
-            userStore.user = freshUserData;
+          const isValid = await authService.verifyToken();
+          if (!isValid.valid) {
+            console.warn('⚠️ Token invalide, suppression des données');
+            localStorage.removeItem('auth_user');
+            localStorage.removeItem('user_data');
+            SessionService.clearSession();
+            user.value = null;
+            isAuthenticated.value = false;
+            userStore.user = null;
+            userStore.isAuthenticated = false;
+          } else {
+            console.log('✅ Token valide, utilisateur restauré:', parsedUserData.name);
           }
-        } catch (refreshError) {
-          // Si échec du rafraîchissement, garder les données locales
-          console.warn('Impossible de rafraîchir les données utilisateur:', refreshError.message);
+        } catch (verifyError) {
+          // En cas d'erreur de vérification (offline), on garde la session
+          console.warn('⚠️ Impossible de valider le token (offline)', verifyError.message);
+          console.log('✅ Utilisateur maintenu en session (offline mode)');
         }
 
         if (import.meta.env.DEV) {
           console.log('✅ Utilisateur chargé depuis localStorage:', parsedUserData.name);
         }
       } catch (parseError) {
-        console.warn('Erreur parsing données utilisateur:', parseError.message);
+        console.warn('❌ Erreur parsing données utilisateur:', parseError.message);
         // Données corrompues, nettoyer
         localStorage.removeItem('auth_user');
         localStorage.removeItem('user_data');
+        SessionService.clearSession();
         user.value = null;
         isAuthenticated.value = false;
       }
@@ -361,7 +418,7 @@ const initAuth = async () => {
       isAuthenticated.value = false;
     }
   } catch (error) {
-    console.error('Erreur initialisation auth:', error);
+    console.error('❌ Erreur initialisation auth:', error);
     user.value = null;
     isAuthenticated.value = false;
   } finally {
@@ -376,8 +433,8 @@ watch(user, (newUser) => {
   }
 }, { deep: true });
 
-// Appeler l'initialisation
-initAuth();
+// Initialisation n'est plus appelée automatiquement
+// Elle sera appelée depuis App.vue au montage
 
 export function useUser() {
   return {
@@ -410,6 +467,7 @@ export function useUser() {
     cancelSubscription,
     reactivateSubscription,
     updateUsage,
-    updateSubscriptionLocally
+    updateSubscriptionLocally,
+    initAuth // Exporter initAuth pour être appelé depuis App.vue
   };
 }

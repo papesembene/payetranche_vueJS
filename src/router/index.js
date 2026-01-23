@@ -6,30 +6,31 @@ import DashboardPage from '../views/DashboardPage.vue';
 import SettingsPage from '../views/SettingsPage.vue';
 import PaymentSuccessPage from '../views/PaymentSuccessPage.vue';
 import { useUserStore } from '../stores/user.js';
+import { authService } from '../services/auth.service.js';
 
 // Navigation guard for authentication and subscription checks
 const requireAuth = (to, from, next) => {
-  const userStore = useUserStore();
-
-  // Check if user is authenticated
-  if (!userStore.isAuthenticated) {
-    next('/login');
-    return;
-  }
-
-  // Check if subscription is expired
-  if (userStore.isSubscriptionExpired) {
-    // Allow access to settings for upgrading, but redirect dashboard to home with message
-    if (to.name === 'Dashboard') {
-      // Could show a modal or redirect to upgrade page
-      // For now, allow access but components will show restrictions
-      next();
-    } else {
-      next();
+  // Vérifier d'abord le localStorage pour une détection rapide
+  const userData = localStorage.getItem('auth_user');
+  
+  if (userData) {
+    try {
+      const user = JSON.parse(userData);
+      if (user && user.id) {
+        // Utilisateur trouvé dans localStorage
+        next();
+        return;
+      }
+    } catch (error) {
+      console.warn('❌ Invalid user data in localStorage');
+      localStorage.removeItem('auth_user');
+      localStorage.removeItem('user_data');
     }
-  } else {
-    next();
   }
+
+  // Pas d'authentification trouvée
+  console.warn('⚠️ Utilisateur non authentifié, redirection vers login');
+  next('/login');
 };
 
 const routes = [
