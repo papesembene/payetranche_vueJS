@@ -133,11 +133,14 @@ class AuthService {
       return false;
     }
 
-    // Nettoyer le numéro
-    const cleaned = phoneNumber.replace(/\s+/g, '').replace(/^\+221/, '');
+    // Nettoyer le numéro (supprimer les espaces et le préfixe pays)
+    const cleaned = phoneNumber.replace(/\s+/g, '').replace(/^\+221/, '').replace(/^221/, '');
 
     // Vérifier le format sénégalais
+    // Les préfixes valides sont: 70, 71, 75, 76, 77, 78 (opérateurs: Orange, Sonatel, etc)
     const validPrefixes = ['70', '71', '75', '76', '77', '78'];
+    
+    // Le numéro doit avoir exactement 9 chiffres et commencer par un préfixe valide
     return cleaned.length === 9 && validPrefixes.some(prefix => cleaned.startsWith(prefix));
   }
 

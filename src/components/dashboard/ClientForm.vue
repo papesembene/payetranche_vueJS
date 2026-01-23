@@ -82,7 +82,9 @@ const handleStepAction = async () => {
       }
     }
     if (currentStep.value === 2) {
-      const phoneRegex = /^(\+221|221)?[76-8]\d{7}$/;
+      // Regex pour valider les numéros sénégalais
+      // Formats acceptés: 77 123 45 67, 7712345678, +221 77 123 45 67, +22177123456, 221771234567
+      const phoneRegex = /^(\+221|221)?[7][01567-8]\d{7}$/;
       const cleanPhone = form.value.phone.replace(/\s/g, '');
       if (!form.value.phone.trim() || !phoneRegex.test(cleanPhone)) {
         alert('Numéro de téléphone invalide. Exemples valides : 77 123 45 67 ou +221 77 123 45 67');
