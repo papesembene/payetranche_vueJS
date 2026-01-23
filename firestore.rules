@@ -1,0 +1,76 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Utilisateurs - lecture/écriture uniquement par le propriétaire
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Clients - lecture/écriture uniquement par le propriétaire
+    match /clients/{clientId} {
+      allow read, write: if request.auth != null &&
+        resource.data.userId == request.auth.uid;
+      allow create: if request.auth != null &&
+        request.auth.uid == request.resource.data.userId;
+    }
+
+    // Transactions - lecture/écriture uniquement par le propriétaire
+    match /transactions/{transactionId} {
+      allow read, write: if request.auth != null &&
+        resource.data.userId == request.auth.uid;
+      allow create: if request.auth != null &&
+        request.auth.uid == request.resource.data.userId;
+    }
+
+    // Abonnements - lecture/écriture uniquement par le propriétaire
+    match /subscriptions/{subscriptionId} {
+      allow read, write: if request.auth != null &&
+        resource.data.userId == request.auth.uid;
+      allow create: if request.auth != null &&
+        request.auth.uid == request.resource.data.userId;
+    }
+
+    // Plans d'abonnement - lecture publique, écriture admin seulement
+    match /subscriptionPlans/{planId} {
+      allow read: if true;
+      allow write: if request.auth != null && request.auth.token.admin == true;
+    }
+
+    // Paiements - sécurité renforcée pour les données sensibles
+    match /payments/{paymentId} {
+      // Lecture uniquement par le propriétaire du paiement
+      allow read: if request.auth != null &&
+        resource.data.userId == request.auth.uid;
+
+      // Création uniquement par le propriétaire
+      allow create: if request.auth != null &&
+        request.auth.uid == request.resource.data.userId &&
+        // Validation des champs obligatoires
+        request.resource.data.keys().hasAll(['userId', 'provider', 'type', 'amount', 'currency', 'status']) &&
+        // Validation du montant (doit être positif)
+        request.resource.data.amount > 0 &&
+        // Validation du statut
+        request.resource.data.status in ['pending', 'processing', 'completed', 'failed', 'cancelled'] &&
+        // Validation du provider
+        request.resource.data.provider in ['paydunya', 'stripe'];
+
+      // Mise à jour limitée (seulement le statut et métadonnées)
+      allow update: if request.auth != null &&
+        resource.data.userId == request.auth.uid &&
+        // Seuls certains champs peuvent être mis à jour
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['status', 'updatedAt', 'completedAt', 'failedAt', 'verifiedAt', 'metadata', 'verificationData']) &&
+        // Le statut ne peut être changé que vers des valeurs valides
+        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['status']) ||
+         request.resource.data.status in ['pending', 'processing', 'completed', 'failed', 'cancelled']);
+
+      // Suppression interdite (pour audit et conformité)
+      allow delete: if false;
+    }
+
+    // Sessions utilisateur - données temporaires
+    match /userSessions/{sessionId} {
+      allow read, write: if request.auth != null && request.auth.uid == sessionId;
+    }
+  }
+}
