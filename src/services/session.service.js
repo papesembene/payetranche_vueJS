@@ -29,7 +29,7 @@ class SessionService {
       }
       return Math.abs(hash).toString(16);
     } catch (error) {
-      console.error('❌ Erreur génération checksum:', error);
+      if (import.meta.env.DEV) console.error('❌ Erreur génération checksum:', error);
       return null;
     }
   }
@@ -53,24 +53,24 @@ class SessionService {
    */
   static _validateUserData(userData) {
     if (!userData || typeof userData !== 'object') {
-      console.warn('⚠️ userData invalide: pas un objet');
+      if (import.meta.env.DEV) console.warn('⚠️ userData invalide: pas un objet');
       return false;
     }
 
     if (!userData.id || typeof userData.id !== 'string') {
-      console.warn('⚠️ userData invalide: pas de id');
+      if (import.meta.env.DEV) console.warn('⚠️ userData invalide: pas de id');
       return false;
     }
 
     if (!userData.phone || typeof userData.phone !== 'string') {
-      console.warn('⚠️ userData invalide: pas de phone');
+      if (import.meta.env.DEV) console.warn('⚠️ userData invalide: pas de phone');
       return false;
     }
 
     // Protection contre les données trop volumineuses
     const dataStr = JSON.stringify(userData);
     if (dataStr.length > 100000) {
-      console.warn('⚠️ userData trop volumineux (> 100KB)');
+      if (import.meta.env.DEV) console.warn('⚠️ userData trop volumineux (> 100KB)');
       return false;
     }
 
@@ -86,7 +86,7 @@ class SessionService {
     try {
       // Valider les données d'abord
       if (!this._validateUserData(userData)) {
-        console.error('❌ Validation échouée, session non sauvegardée');
+        if (import.meta.env.DEV) console.error('❌ Validation échouée, session non sauvegardée');
         return false;
       }
 
@@ -105,8 +105,10 @@ class SessionService {
         localStorage.setItem(SESSION_EXPIRY_KEY, sessionData.expiresAt);
         localStorage.setItem(SESSION_CHECKSUM_KEY, checksum);
 
-        console.log('✅ Session persistante sauvegardée avec sécurité');
-        console.log(`⏰ Expiration: ${new Date(sessionData.expiresAt).toLocaleDateString('fr-FR')}`);
+        if (import.meta.env.DEV) {
+          console.log('✅ Session persistante sauvegardée avec sécurité');
+          console.log(`⏰ Expiration: ${new Date(sessionData.expiresAt).toLocaleDateString('fr-FR')}`);
+        }
         return true;
       } catch (storageError) {
         if (storageError.name === 'QuotaExceededError') {
@@ -135,7 +137,7 @@ class SessionService {
 
       // Vérifications basiques
       if (!sessionData || !expiryDate || !checksum) {
-        console.warn('⚠️ Données de session incomplètes');
+        if (import.meta.env.DEV) console.warn('⚠️ Données de session incomplètes');
         this.clearSession();
         return null;
       }
@@ -152,7 +154,7 @@ class SessionService {
       const expiry = new Date(expiryDate);
 
       if (expiry < now) {
-        console.warn('⚠️ Session expirée le', expiry.toLocaleDateString('fr-FR'));
+        if (import.meta.env.DEV) console.warn('⚠️ Session expirée le', expiry.toLocaleDateString('fr-FR'));
         this.clearSession();
         return null;
       }
@@ -167,8 +169,10 @@ class SessionService {
         return null;
       }
 
-      console.log('✅ Session valide restaurée:', session.user.name);
-      console.log(`⏰ Expire dans: ${Math.ceil((expiry - now) / (1000 * 60 * 60 * 24))} jours`);
+      if (import.meta.env.DEV) {
+        console.log('✅ Session valide restaurée:', session.user.name);
+        console.log(`⏰ Expire dans: ${Math.ceil((expiry - now) / (1000 * 60 * 60 * 24))} jours`);
+      }
 
       return session;
     } catch (error) {
@@ -195,7 +199,7 @@ class SessionService {
       localStorage.removeItem(SESSION_KEY);
       localStorage.removeItem(SESSION_EXPIRY_KEY);
       localStorage.removeItem(SESSION_CHECKSUM_KEY);
-      console.log('✅ Session complètement effacée');
+      if (import.meta.env.DEV) console.log('✅ Session complètement effacée');
       return true;
     } catch (error) {
       console.error('❌ Erreur effacement session:', error);
@@ -211,7 +215,7 @@ class SessionService {
     try {
       const sessionData = localStorage.getItem(SESSION_KEY);
       if (!sessionData) {
-        console.warn('⚠️ Aucune session à prolonger');
+        if (import.meta.env.DEV) console.warn('⚠️ Aucune session à prolonger');
         return false;
       }
 
@@ -226,8 +230,10 @@ class SessionService {
       localStorage.setItem(SESSION_EXPIRY_KEY, newExpiry);
       localStorage.setItem(SESSION_CHECKSUM_KEY, checksum);
 
-      console.log('✅ Session prolongée');
-      console.log(`⏰ Nouvelle expiration: ${new Date(newExpiry).toLocaleDateString('fr-FR')}`);
+      if (import.meta.env.DEV) {
+        console.log('✅ Session prolongée');
+        console.log(`⏰ Nouvelle expiration: ${new Date(newExpiry).toLocaleDateString('fr-FR')}`);
+      }
       return true;
     } catch (error) {
       console.error('❌ Erreur prolongement session:', error);
@@ -278,11 +284,11 @@ class SessionService {
       const expiryDate = localStorage.getItem(SESSION_EXPIRY_KEY);
 
       if (expiryDate && new Date(expiryDate) < now) {
-        console.log('🗑️  Suppression de la session expirée');
+        if (import.meta.env.DEV) console.log('🗑️  Suppression de la session expirée');
         this.clearSession();
       }
     } catch (error) {
-      console.warn('⚠️ Erreur nettoyage:', error);
+      if (import.meta.env.DEV) console.warn('⚠️ Erreur nettoyage:', error);
     }
   }
 

@@ -253,11 +253,11 @@ const loadPlans = async () => {
       plansObject[plan.id] = plan;
     });
     subscriptionPlans.value = plansObject;
-    console.log('✅ Plans chargés:', Object.keys(plansObject));
+    if (import.meta.env.DEV) console.log('✅ Plans chargés:', Object.keys(plansObject));
   } catch (error) {
     console.error('Erreur chargement plans:', error);
     // Fallback avec les plans par défaut définis dans le composable
-    console.log('⚠️ Utilisation des plans par défaut');
+    if (import.meta.env.DEV) console.log('⚠️ Utilisation des plans par défaut');
   }
 };
 
@@ -304,7 +304,7 @@ const loadPersistedUserData = () => {
     try {
       const parsedData = JSON.parse(persistedData);
       user.value = parsedData;
-      console.log('✅ Données utilisateur chargées depuis localStorage:', parsedData.name);
+      if (import.meta.env.DEV) console.log('✅ Données utilisateur chargées depuis localStorage:', parsedData.name);
     } catch (error) {
       console.warn('❌ Erreur chargement données persistées:', error);
       localStorage.removeItem('user_data');
@@ -315,7 +315,7 @@ const loadPersistedUserData = () => {
       const parsedAuth = JSON.parse(authUser);
       user.value = parsedAuth;
       localStorage.setItem('user_data', JSON.stringify(parsedAuth));
-      console.log('✅ Utilisateur restauré depuis auth_user:', parsedAuth.name);
+      if (import.meta.env.DEV) console.log('✅ Utilisateur restauré depuis auth_user:', parsedAuth.name);
     } catch (error) {
       console.warn('❌ Erreur chargement auth_user:', error);
       localStorage.removeItem('auth_user');
@@ -326,9 +326,9 @@ const loadPersistedUserData = () => {
 // Charger les plans d'abonnement par défaut si nécessaire
 const loadDefaultPlansIfNeeded = () => {
   if (Object.keys(subscriptionPlans.value).length === 0) {
-    console.log('⚠️ Aucun plan chargé, utilisation des plans par défaut');
+    if (import.meta.env.DEV) console.log('⚠️ Aucun plan chargé, utilisation des plans par défaut');
     subscriptionPlans.value = defaultPlans;
-    console.log('✅ Plans par défaut chargés');
+    if (import.meta.env.DEV) console.log('✅ Plans par défaut chargés');
   }
 };
 
@@ -359,7 +359,7 @@ const initAuth = async () => {
       // Si pas de auth_user mais session persistante existe, l'utiliser
       userData = JSON.stringify(persistedSession.user);
       localStorage.setItem('auth_user', userData);
-      console.log('✅ Session PWA restaurée depuis session persistante');
+      if (import.meta.env.DEV) console.log('✅ Session PWA restaurée depuis session persistante');
     }
 
     if (userData) {
@@ -383,7 +383,7 @@ const initAuth = async () => {
         try {
           const isValid = await authService.verifyToken();
           if (!isValid.valid) {
-            console.warn('⚠️ Token invalide, suppression des données');
+            if (import.meta.env.DEV) console.warn('⚠️ Token invalide, suppression des données');
             localStorage.removeItem('auth_user');
             localStorage.removeItem('user_data');
             SessionService.clearSession();
@@ -392,19 +392,20 @@ const initAuth = async () => {
             userStore.user = null;
             userStore.isAuthenticated = false;
           } else {
-            console.log('✅ Token valide, utilisateur restauré:', parsedUserData.name);
+            if (import.meta.env.DEV) console.log('✅ Token valide, utilisateur restauré:', parsedUserData.name);
           }
         } catch (verifyError) {
           // En cas d'erreur de vérification (offline), on garde la session
-          console.warn('⚠️ Impossible de valider le token (offline)', verifyError.message);
-          console.log('✅ Utilisateur maintenu en session (offline mode)');
-        }
+          if (import.meta.env.DEV) {
+            console.warn('⚠️ Impossible de valider le token (offline)', verifyError.message);
+            console.log('✅ Utilisateur maintenu en session (offline mode)');
+          }        }
 
         if (import.meta.env.DEV) {
           console.log('✅ Utilisateur chargé depuis localStorage:', parsedUserData.name);
         }
       } catch (parseError) {
-        console.warn('❌ Erreur parsing données utilisateur:', parseError.message);
+        if (import.meta.env.DEV) console.warn('❌ Erreur parsing données utilisateur:', parseError.message);
         // Données corrompues, nettoyer
         localStorage.removeItem('auth_user');
         localStorage.removeItem('user_data');
