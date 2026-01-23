@@ -414,35 +414,30 @@ const persistUserData = () => {
 
 // Initialisation automatique au chargement de l'app
 const initAuth = async () => {
-  const token = localStorage.getItem('auth_token');
-  if (token) {
+  const userData = localStorage.getItem('auth_user');
+  if (userData) {
     loading.value = true;
     try {
       // Charger d'abord les plans par défaut pour éviter les erreurs d'affichage
       loadDefaultPlansIfNeeded();
-      
-      // Charger d'abord les données persistées
-      loadPersistedUserData();
 
-      // Si pas de données persistées, essayer de vérifier le token
-      if (!user.value) {
-        const verifyResult = await authService.verifyToken();
-        if (verifyResult.valid) {
-          user.value = verifyResult.user;
-        } else {
-          // Token invalide
-          localStorage.removeItem('auth_token');
-          localStorage.removeItem('user_data');
-        }
-      }
+      // Charger les données utilisateur depuis localStorage
+      const parsedUserData = JSON.parse(userData);
+      user.value = parsedUserData;
+      isAuthenticated.value = true;
 
-      if (user.value) {
-        isAuthenticated.value = true;
+      // Synchroniser avec le userStore
+      const userStore = useUserStore();
+      userStore.user = parsedUserData;
+      userStore.isAuthenticated = true;
+
+      if (import.meta.env.DEV) {
+        console.log('✅ Utilisateur chargé depuis localStorage:', parsedUserData.name);
       }
     } catch (error) {
-      console.warn('Auto-login failed:', error.message);
-      // Token invalide, supprimer
-      localStorage.removeItem('auth_token');
+      console.warn('Erreur chargement données utilisateur:', error.message);
+      // Données corrompues, nettoyer
+      localStorage.removeItem('auth_user');
       localStorage.removeItem('user_data');
       user.value = null;
       isAuthenticated.value = false;
@@ -450,7 +445,7 @@ const initAuth = async () => {
       loading.value = false;
     }
   } else {
-    // Même sans token, s'assurer que les plans sont disponibles
+    // Pas de données utilisateur, s'assurer que les plans sont disponibles
     loadDefaultPlansIfNeeded();
   }
 };
