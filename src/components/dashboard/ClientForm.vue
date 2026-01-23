@@ -1,6 +1,6 @@
 <script setup>
 import { ref, watch } from 'vue';
-import { X, Upload, User, Phone, Home, CheckCircle, DollarSign } from 'lucide-vue-next';
+import { X, User, Phone, Home, CheckCircle, DollarSign } from 'lucide-vue-next';
 import Swal from 'sweetalert2';
 import { clientService } from '../../services/client.service.js';
 import { useUserStore } from '../../stores/user.js';
@@ -24,13 +24,8 @@ const form = ref({
   name: '',
   address: '',
   phone: '',
-  totalDebt: 0,
-  idCardRecto: null,
-  idCardVerso: null
+  totalDebt: 0
 });
-
-const rectoPreview = ref('');
-const versoPreview = ref('');
 const loading = ref(false);
 const currentStep = ref(1);
 const totalSteps = 3;
@@ -42,12 +37,8 @@ const resetForm = () => {
     name: '',
     address: '',
     phone: '',
-    totalDebt: 0,
-    idCardRecto: null,
-    idCardVerso: null
+    totalDebt: 0
   };
-  rectoPreview.value = '';
-  versoPreview.value = '';
 };
 
 // Watch for client prop changes (for editing)
@@ -57,12 +48,8 @@ watch(() => props.client, (newClient) => {
       name: newClient.name || '',
       address: newClient.address || '',
       phone: newClient.phone || '',
-      totalDebt: newClient.totalDebt || 0,
-      idCardRecto: null,
-      idCardVerso: null
+      totalDebt: newClient.totalDebt || 0
     };
-    rectoPreview.value = newClient.idCardRecto || '';
-    versoPreview.value = newClient.idCardVerso || '';
   } else {
     resetForm();
   }
@@ -81,23 +68,9 @@ watch(() => props.show, (show) => {
 watch(() => currentStep.value, (newStep) => {
   if (newStep === 1) speak('Étape 1: Entrez le nom du client');
   else if (newStep === 2) speak('Étape 2: Entrez le numéro de téléphone');
-  else if (newStep === 3) speak('Étape 3: Entrez l\'adresse et la dette totale');
+  else if (newStep === 3) speak('Étape 3: Entrez l\'adresse et le montant de la dette');
 });
 
-const handleFileSelect = async (event, field) => {
-  const file = event.target.files[0];
-  if (file) {
-    try {
-      const url = await uploadToCloudinary(file);
-      form.value[field] = url;
-      if (field === 'idCardRecto') rectoPreview.value = url;
-      else if (field === 'idCardVerso') versoPreview.value = url;
-    } catch (error) {
-      alert('Erreur lors du téléchargement de l\'image');
-      console.error(error);
-    }
-  }
-};
 
 const handleStepAction = async () => {
   if (currentStep.value < totalSteps) {
@@ -125,11 +98,6 @@ const handleStepAction = async () => {
         alert('Le montant de la dette ne peut pas être négatif');
         return;
       }
-      // Temporarily disabled - photos are optional
-      // if (!rectoPreview.value || !versoPreview.value) {
-      //   alert('Veuillez ajouter les photos recto et verso de la carte d\'identité');
-      //   return;
-      // }
     }
     nextStep();
   } else {
@@ -155,9 +123,7 @@ const submitForm = async () => {
       phone: cleanPhone, // Sauvegarder sans +221
       userId: userStore.user?.id,
       status: 'active',
-      createdAt: new Date().toISOString(),
-      idCardRecto: rectoPreview.value,
-      idCardVerso: versoPreview.value
+      createdAt: new Date().toISOString()
     };
 
     if (props.client) {
@@ -213,16 +179,6 @@ const speak = (text) => {
   }
 };
 
-const uploadToCloudinary = async (file) => {
-  // Temporarily disabled - using base64 encoding instead
-  return new Promise((resolve) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      resolve(e.target.result); // Return base64 data URL
-    };
-    reader.readAsDataURL(file);
-  });
-};
 
 const closeModal = () => {
   emit('close');
@@ -294,7 +250,7 @@ const closeModal = () => {
           />
         </div>
 
-        <!-- Step 3: Address, Debt, ID -->
+        <!-- Step 3: Address and Debt -->
         <div v-if="currentStep === 3" class="space-y-6">
           <div class="text-center mb-6">
             <div class="mb-4">
@@ -318,7 +274,7 @@ const closeModal = () => {
 
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-2">
-                💰 Total
+                💰 Total dette (FCFA)
               </label>
               <input
                 v-model.number="form.totalDebt"
@@ -330,63 +286,7 @@ const closeModal = () => {
               />
             </div>
           </div>
-
-        <!-- ID Card Uploads -->
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <!-- Recto -->
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">
-              Carte d'identité - Recto
-            </label>
-            <div class="space-y-3">
-              <input
-                type="file"
-                accept="image/*"
-                @change="(e) => handleFileSelect(e, 'idCardRecto')"
-                class="hidden"
-                id="recto-upload"
-              />
-              <label
-                for="recto-upload"
-                class="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors w-full justify-center"
-              >
-                <Upload :size="16" />
-                Choisir recto
-              </label>
-              <div v-if="rectoPreview" class="border border-gray-200 rounded-lg p-2">
-                <img :src="rectoPreview" alt="Recto" class="w-full h-32 object-cover rounded" />
-              </div>
-            </div>
-          </div>
-
-          <!-- Verso -->
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">
-              Carte d'identité - Verso
-            </label>
-            <div class="space-y-3">
-              <input
-                type="file"
-                accept="image/*"
-                @change="(e) => handleFileSelect(e, 'idCardVerso')"
-                class="hidden"
-                id="verso-upload"
-              />
-              <label
-                for="verso-upload"
-                class="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors w-full justify-center"
-              >
-                <Upload :size="16" />
-                Choisir verso
-              </label>
-              <div v-if="versoPreview" class="border border-gray-200 rounded-lg p-2">
-                <img :src="versoPreview" alt="Verso" class="w-full h-32 object-cover rounded" />
-              </div>
-            </div>
-          </div>
         </div>
-
-      </div>
 
       <!-- Actions -->
       <div class="flex gap-3 pt-6 border-t border-gray-200">
