@@ -30,7 +30,10 @@ class FirestoreService {
    */
   async getCollection(collectionName, options = {}) {
     try {
-      console.log(`🔍 getCollection: ${collectionName}`, options);
+      // Logs uniquement en développement
+      if (import.meta.env.DEV) {
+        console.log(`🔍 getCollection: ${collectionName}`, options);
+      }
       let q = collection(db, collectionName);
 
       // Appliquer les filtres
@@ -42,7 +45,9 @@ class FirestoreService {
 
       // Filtre automatique par userId si spécifié
       if (options.userId) {
-        console.log(`👤 Filtrage par userId: ${options.userId}`);
+        if (import.meta.env.DEV) {
+          console.log(`👤 Filtrage par userId: ${options.userId}`);
+        }
         q = query(q, where('userId', '==', options.userId));
       }
 
@@ -56,7 +61,9 @@ class FirestoreService {
         q = query(q, limit(options.limit));
       }
 
-      console.log(`📡 Exécution requête Firestore...`);
+      if (import.meta.env.DEV) {
+        console.log(`📡 Exécution requête Firestore...`);
+      }
       const querySnapshot = await getDocs(q);
       const documents = [];
 
@@ -67,9 +74,12 @@ class FirestoreService {
         });
       });
 
-      console.log(`✅ ${documents.length} documents récupérés de ${collectionName}`);
+      if (import.meta.env.DEV) {
+        console.log(`✅ ${documents.length} documents récupérés de ${collectionName}`);
+      }
       return documents;
     } catch (error) {
+      // Erreurs toujours affichées pour le debugging
       console.error(`❌ Erreur Firestore ${collectionName}:`, error);
       throw new Error(`Erreur lors de la récupération de ${collectionName}: ${error.message}`);
     }

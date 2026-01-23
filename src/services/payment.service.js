@@ -69,7 +69,9 @@ class PaymentService {
           couponCode: options.coupon,
           discount: options.discount
         });
-        console.log('✅ Paiement Stripe sauvegardé dans Firestore');
+        if (import.meta.env.DEV) {
+          console.log('✅ Paiement Stripe sauvegardé dans Firestore');
+        }
       } catch (firestoreError) {
         console.error('❌ Erreur sauvegarde Firestore:', firestoreError);
         // Ne pas bloquer le paiement si Firestore échoue
@@ -107,7 +109,9 @@ class PaymentService {
             subscriptionId: mockData.subscription.id,
             confirmedAt: new Date()
           });
-          console.log('✅ Statut paiement Stripe mis à jour: completed');
+          if (import.meta.env.DEV) {
+            console.log('✅ Statut paiement Stripe mis à jour: completed');
+          }
         }
       } catch (firestoreError) {
         console.error('❌ Erreur mise à jour Firestore:', firestoreError);
@@ -131,7 +135,9 @@ class PaymentService {
             subscriptionId: response.data.subscription?.id,
             confirmedAt: new Date()
           });
-          console.log('✅ Statut paiement Stripe mis à jour: completed');
+          if (import.meta.env.DEV) {
+            console.log('✅ Statut paiement Stripe mis à jour: completed');
+          }
         }
       } catch (firestoreError) {
         console.error('❌ Erreur mise à jour Firestore:', firestoreError);
@@ -271,7 +277,9 @@ class PaymentService {
       if (userStore.user?.id) {
         try {
           const payments = await firestoreService.getUserPayments(userStore.user.id, filters);
-          console.log(`✅ ${payments.length} paiements récupérés depuis Firestore`);
+          if (import.meta.env.DEV) {
+            console.log(`✅ ${payments.length} paiements récupérés depuis Firestore`);
+          }
           return payments;
         } catch (firestoreError) {
           console.warn('❌ Erreur Firestore, fallback vers API:', firestoreError.message);

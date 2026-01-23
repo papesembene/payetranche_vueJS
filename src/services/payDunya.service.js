@@ -85,7 +85,9 @@ class PayDunyaService {
               plan: subscriptionData.plan
             }
           });
-          console.log('✅ Paiement PayDunya sauvegardé dans Firestore');
+          if (import.meta.env.DEV) {
+            console.log('✅ Paiement PayDunya sauvegardé dans Firestore');
+          }
         } catch (firestoreError) {
           console.error('❌ Erreur sauvegarde Firestore:', firestoreError);
           // Ne pas bloquer le paiement si Firestore échoue
@@ -168,7 +170,9 @@ class PayDunyaService {
             verifiedAt: new Date(),
             verificationData: paymentData
           });
-          console.log(`✅ Statut paiement mis à jour: ${paymentData.status}`);
+          if (import.meta.env.DEV) {
+            console.log(`✅ Statut paiement mis à jour: ${paymentData.status}`);
+          }
         }
       } catch (firestoreError) {
         console.error('❌ Erreur mise à jour Firestore:', firestoreError);
