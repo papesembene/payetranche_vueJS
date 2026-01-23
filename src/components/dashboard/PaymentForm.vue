@@ -4,8 +4,10 @@ import { Calendar, DollarSign, CreditCard, Plus, X } from 'lucide-vue-next';
 import { transactionService } from '../../services/transaction.service.js';
 import { clientService } from '../../services/client.service.js';
 import { useUserStore } from '../../stores/user.js';
+import { useUser } from '../../composables/useUser.js';
 
 const userStore = useUserStore();
+const { syncUsageCounts } = useUser();
 
 const props = defineProps({
   show: {
@@ -140,6 +142,9 @@ const handleSubmit = async () => {
 
     // Update user usage
     userStore.updateUsage('payments', paymentData.value.isInstallment ? paymentData.value.installmentCount : 1);
+    
+    // Force synchronization with real database count
+    await syncUsageCounts();
 
     emit('saved');
     closeForm();

@@ -429,6 +429,64 @@ const initAuth = async () => {
     isAuthenticated.value = false;
   } finally {
     loading.value = false;
+    
+    // Synchroniser les comptages réels depuis la base de données
+    if (isAuthenticated.value && user.value) {
+      syncUsageCounts();
+    }
+  }
+};
+
+// Synchroniser les comptages réels avec la base de données
+const syncUsageCounts = async () => {
+  try {
+    if (!user.value?.id) return;
+    
+    // Charger les clients et paiements réels
+    const [clients, transactions] = await Promise.all([
+      clientService.getClients(),
+      transactionService.getTransactions()
+    ]);
+    
+    // Compter les vrais clients
+    const realClientCount = clients?.length || 0;
+    
+    // Compter les vrais paiements
+    const realPaymentCount = transactions?.length || 0;
+    
+    // Calculer le montant total des paiements
+    const totalAmount = transactions?.reduce((sum, t) => sum + (t.amount || 0), 0) || 0;
+    
+    // Mettre à jour si différent
+    if (user.value.usage) {
+      if (user.value.usage.clients !== realClientCount) {
+        if (import.meta.env.DEV) console.log(`📊 Synchronisation clients: ${user.value.usage.clients} → ${realClientCount}`);
+        user.value.usage.clients = realClientCount;
+      }
+      
+      if (user.value.usage.payments !== realPaymentCount) {
+        if (import.meta.env.DEV) console.log(`📊 Synchronisation paiements: ${user.value.usage.payments} → ${realPaymentCount}`);
+        user.value.usage.payments = realPaymentCount;
+      }
+      
+      if (user.value.usage.totalAmount !== totalAmount) {
+        if (import.meta.env.DEV) console.log(`📊 Synchronisation montant: ${user.value.usage.totalAmount} → ${totalAmount}`);
+        user.value.usage.totalAmount = totalAmount;
+      }
+      
+      // Persister les comptages synchronisés
+      persistUserData();
+    }
+    
+    // Aussi synchroniser le userStore
+    const userStore = useUserStore();
+    if (userStore.user?.usage) {
+      userStore.user.usage.clients = realClientCount;
+      userStore.user.usage.payments = realPaymentCount;
+      userStore.user.usage.totalAmount = totalAmount;
+    }
+  } catch (error) {
+    if (import.meta.env.DEV) console.warn('⚠️ Erreur synchronisation usage:', error.message);
   }
 };
 
@@ -474,6 +532,7 @@ export function useUser() {
     reactivateSubscription,
     updateUsage,
     updateSubscriptionLocally,
+    syncUsageCounts, // Exporter pour synchroniser manuellement si besoin
     initAuth // Exporter initAuth pour être appelé depuis App.vue
   };
 }

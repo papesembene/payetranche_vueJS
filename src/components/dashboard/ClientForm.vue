@@ -20,7 +20,7 @@ const props = defineProps({
 const emit = defineEmits(['close', 'saved', 'addPayment']);
 
 const userStore = useUserStore();
-const { updateUsage } = useUser();
+const { updateUsage, syncUsageCounts } = useUser();
 
 const form = ref({
   name: '',
@@ -138,6 +138,8 @@ const submitForm = async () => {
       savedClient.value = await clientService.createClient(clientData);
       // Update the usage counter and persist to localStorage
       updateUsage('clients', 1);
+      // Force synchronization with real database count
+      await syncUsageCounts();
     }
 
     // After saving, show success
