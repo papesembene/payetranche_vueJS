@@ -1,7 +1,7 @@
 <script setup>
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { Phone, Lock } from 'lucide-vue-next';
+import { Phone } from 'lucide-vue-next';
 import { DollarSign } from 'lucide-vue-next';
 import { useUser } from '../composables/useUser.js';
 
@@ -9,9 +9,6 @@ const router = useRouter();
 const { login, loading } = useUser();
 
 const phone = ref('');
-const otp = ref('');
-const generatedOtp = ref('');
-const step = ref(1); // 1: phone, 2: otp
 const rememberMe = ref(false);
 const errors = ref({});
 
@@ -29,47 +26,16 @@ const validateSenegalesePhone = (phoneNumber) => {
   return null;
 };
 
-const validateOtp = (otpValue) => {
-  if (!otpValue || otpValue.trim() === '') {
-    return 'Le code OTP est requis';
-  }
-  if (otpValue.length !== 6 || !/^\d{6}$/.test(otpValue)) {
-    return 'Le code OTP doit contenir 6 chiffres';
-  }
-  return null;
-};
-
-const generateOtp = () => {
-  return Math.floor(100000 + Math.random() * 900000).toString();
-};
-
-const handleSendCode = () => {
+const handleLogin = async () => {
   errors.value = {};
   const phoneError = validateSenegalesePhone(phone.value);
   if (phoneError) {
     errors.value.phone = phoneError;
     return;
   }
-  generatedOtp.value = generateOtp();
-  step.value = 2;
-};
 
-const handleLogin = async () => {
-  errors.value = {};
-  const otpError = validateOtp(otp.value);
-  if (otpError) {
-    errors.value.otp = otpError;
-    return;
-  }
-  if (otp.value !== generatedOtp.value) {
-    errors.value.otp = 'Code OTP incorrect';
-    return;
-  }
-
-  // For mock, use phone as identifier
   const result = await login({
-    phone: phone.value,
-    otp: otp.value
+    phone: phone.value
   });
 
   if (result.success) {
@@ -77,13 +43,6 @@ const handleLogin = async () => {
   } else {
     errors.value.general = result.error || 'Erreur de connexion';
   }
-};
-
-const handleBack = () => {
-  step.value = 1;
-  otp.value = '';
-  generatedOtp.value = '';
-  errors.value = {};
 };
 </script>
 
@@ -105,14 +64,14 @@ const handleBack = () => {
       <div class="bg-white rounded-2xl shadow-xl p-8">
         <!-- Welcome Text -->
         <h1 class="text-3xl font-bold text-gray-900 mb-2">Bienvenue !</h1>
-        <p class="text-gray-600 mb-8">Connectez-vous pour accéder à votre tableau de bord</p>
+        <p class="text-gray-600 mb-8">Connectez-vous avec votre numéro de téléphone</p>
 
         <!-- Error Message -->
         <div v-if="errors.general" class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md mb-6">
           {{ errors.general }}
         </div>
 
-        <form v-if="step === 1" @submit.prevent="handleSendCode" class="space-y-6">
+        <form @submit.prevent="handleLogin" class="space-y-6">
           <!-- Phone Field -->
           <div>
             <label for="phone" class="block text-sm font-semibold text-gray-700 mb-2">
@@ -134,44 +93,6 @@ const handleBack = () => {
             <p v-if="errors.phone" class="text-xs text-red-600 mt-1">{{ errors.phone }}</p>
           </div>
 
-          <!-- Send Code Button -->
-          <button
-            type="submit"
-            class="w-full bg-teal-500 hover:bg-teal-600 text-white font-semibold py-3 rounded-xl transition-colors shadow-md hover:shadow-lg"
-          >
-            Envoyer le code
-          </button>
-        </form>
-
-        <form v-else @submit.prevent="handleLogin" class="space-y-6">
-          <!-- OTP Display -->
-          <div class="bg-teal-50 border border-teal-200 rounded-xl p-4">
-            <p class="text-sm text-teal-800 font-medium mb-2">Votre code de vérification :</p>
-            <p class="text-2xl font-bold text-teal-600 text-center">{{ generatedOtp }}</p>
-            <p class="text-xs text-teal-600 mt-2">Saisissez ce code ci-dessous pour vous connecter</p>
-          </div>
-
-          <!-- OTP Input -->
-          <div>
-            <label for="otp" class="block text-sm font-semibold text-gray-700 mb-2">
-              Code de vérification
-            </label>
-            <div class="relative">
-              <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                <Lock :size="20" class="text-gray-400" />
-              </div>
-              <input
-                id="otp"
-                v-model="otp"
-                type="text"
-                placeholder="123456"
-                maxlength="6"
-                :class="['w-full pl-12 pr-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all text-center text-lg font-mono', errors.otp ? 'border-red-500' : 'border-gray-300']"
-              />
-            </div>
-            <p v-if="errors.otp" class="text-xs text-red-600 mt-1">{{ errors.otp }}</p>
-          </div>
-
           <!-- Remember Me -->
           <div class="flex items-center justify-between">
             <label class="flex items-center gap-2 cursor-pointer">
@@ -182,13 +103,6 @@ const handleBack = () => {
               />
               <span class="text-sm text-gray-600">Se souvenir de moi</span>
             </label>
-            <button
-              type="button"
-              @click="handleBack"
-              class="text-sm text-teal-500 hover:text-teal-600 font-medium transition-colors"
-            >
-              Retour
-            </button>
           </div>
 
           <!-- Login Button -->
@@ -200,7 +114,6 @@ const handleBack = () => {
             {{ loading ? 'Connexion...' : 'Se connecter' }}
           </button>
         </form>
-
 
         <!-- Sign Up Link -->
         <p class="text-center text-sm text-gray-600 mt-6">

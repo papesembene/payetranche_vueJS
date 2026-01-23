@@ -1,4 +1,6 @@
 import { http, USE_MOCK } from './http.js';
+import { firestoreService } from './firestore.service.js';
+import { useUserStore } from '../stores/user.js';
 
 /**
  * Service de gestion des paiements
@@ -14,12 +16,36 @@ class PaymentService {
   async createPaymentIntent(planId, options = {}) {
     if (USE_MOCK) {
       await new Promise(resolve => setTimeout(resolve, 1000));
-      return {
+      const mockData = {
         clientSecret: 'pi_mock_secret_' + Date.now(),
         amount: 5000,
         currency: 'fcfa',
-        planId
+        planId,
+        paymentIntentId: 'pi_mock_' + Date.now()
       };
+
+      // Sauvegarder le paiement dans Firestore
+      try {
+        const userStore = useUserStore();
+        await firestoreService.saveStripePayment({
+          userId: userStore.user?.id,
+          type: 'subscription',
+          amount: mockData.amount,
+          currency: mockData.currency,
+          status: 'pending',
+          paymentIntentId: mockData.paymentIntentId,
+          planId: planId,
+          description: `Abonnement ${planId}`,
+          couponCode: options.coupon,
+          discount: options.discount
+        });
+        console.log('✅ Paiement Stripe sauvegardé dans Firestore');
+      } catch (firestoreError) {
+        console.error('❌ Erreur sauvegarde Firestore:', firestoreError);
+        // Ne pas bloquer le paiement si Firestore échoue
+      }
+
+      return mockData;
     }
 
     try {
@@ -27,6 +53,28 @@ class PaymentService {
         planId,
         ...options
       });
+
+      // Sauvegarder le paiement dans Firestore
+      try {
+        const userStore = useUserStore();
+        await firestoreService.saveStripePayment({
+          userId: userStore.user?.id,
+          type: 'subscription',
+          amount: response.data.amount,
+          currency: response.data.currency,
+          status: 'pending',
+          paymentIntentId: response.data.paymentIntentId,
+          planId: planId,
+          description: `Abonnement ${planId}`,
+          couponCode: options.coupon,
+          discount: options.discount
+        });
+        console.log('✅ Paiement Stripe sauvegardé dans Firestore');
+      } catch (firestoreError) {
+        console.error('❌ Erreur sauvegarde Firestore:', firestoreError);
+        // Ne pas bloquer le paiement si Firestore échoue
+      }
+
       return response.data;
     } catch (error) {
       throw new Error(error.response?.data?.message || 'Erreur lors de la création du paiement');
@@ -42,7 +90,7 @@ class PaymentService {
   async confirmPayment(paymentIntentId, planId) {
     if (USE_MOCK) {
       await new Promise(resolve => setTimeout(resolve, 1000));
-      return {
+      const mockData = {
         success: true,
         subscription: {
           id: 'sub_' + Date.now(),
@@ -50,6 +98,23 @@ class PaymentService {
           status: 'active'
         }
       };
+
+      // Mettre à jour le statut dans Firestore
+      try {
+        const payment = await firestoreService.getPaymentByPaymentIntent(paymentIntentId);
+        if (payment) {
+          await firestoreService.updatePaymentStatus(payment.id, 'completed', {
+            subscriptionId: mockData.subscription.id,
+            confirmedAt: new Date()
+          });
+          console.log('✅ Statut paiement Stripe mis à jour: completed');
+        }
+      } catch (firestoreError) {
+        console.error('❌ Erreur mise à jour Firestore:', firestoreError);
+        // Ne pas bloquer la confirmation si Firestore échoue
+      }
+
+      return mockData;
     }
 
     try {
@@ -57,8 +122,37 @@ class PaymentService {
         paymentIntentId,
         planId
       });
+
+      // Mettre à jour le statut dans Firestore
+      try {
+        const payment = await firestoreService.getPaymentByPaymentIntent(paymentIntentId);
+        if (payment) {
+          await firestoreService.updatePaymentStatus(payment.id, 'completed', {
+            subscriptionId: response.data.subscription?.id,
+            confirmedAt: new Date()
+          });
+          console.log('✅ Statut paiement Stripe mis à jour: completed');
+        }
+      } catch (firestoreError) {
+        console.error('❌ Erreur mise à jour Firestore:', firestoreError);
+        // Ne pas bloquer la confirmation si Firestore échoue
+      }
+
       return response.data;
     } catch (error) {
+      // En cas d'erreur, marquer le paiement comme échoué dans Firestore
+      try {
+        const payment = await firestoreService.getPaymentByPaymentIntent(paymentIntentId);
+        if (payment) {
+          await firestoreService.updatePaymentStatus(payment.id, 'failed', {
+            error: error.message,
+            failedAt: new Date()
+          });
+        }
+      } catch (firestoreError) {
+        console.error('❌ Erreur mise à jour statut failed:', firestoreError);
+      }
+
       throw new Error(error.response?.data?.message || 'Erreur lors de la confirmation du paiement');
     }
   }
@@ -172,6 +266,20 @@ class PaymentService {
    */
   async getTransactionHistory(filters = {}) {
     try {
+      // Essayer d'abord Firestore
+      const userStore = useUserStore();
+      if (userStore.user?.id) {
+        try {
+          const payments = await firestoreService.getUserPayments(userStore.user.id, filters);
+          console.log(`✅ ${payments.length} paiements récupérés depuis Firestore`);
+          return payments;
+        } catch (firestoreError) {
+          console.warn('❌ Erreur Firestore, fallback vers API:', firestoreError.message);
+          // Fallback vers l'API si Firestore échoue
+        }
+      }
+
+      // Fallback vers l'API backend
       const params = new URLSearchParams(filters);
       const response = await http.get(`/payment/transactions?${params}`);
       return response.data;

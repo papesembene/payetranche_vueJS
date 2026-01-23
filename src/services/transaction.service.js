@@ -1,7 +1,8 @@
-import { http } from './http.js';
+import { firestoreService } from './firestore.service.js';
+import { auth } from '../firebase.js';
 
 /**
- * Service de gestion des transactions/paiements
+ * Service de gestion des transactions/paiements avec Firestore
  * Responsabilités : CRUD transactions, historique, statistiques
  */
 class TransactionService {
@@ -12,14 +13,69 @@ class TransactionService {
    */
   async getTransactions(filters = {}) {
     try {
-      const params = new URLSearchParams({
-        userId: this._getCurrentUserId(),
-        ...filters
-      });
-      const response = await http.get(`/transactions?${params}`);
-      return response.data;
+      const userId = this._getCurrentUserId();
+      if (!userId) {
+        throw new Error('Utilisateur non authentifié');
+      }
+
+      let queryOptions = { userId };
+      let whereConditions = [];
+
+      // Appliquer les filtres
+      if (filters.status) {
+        whereConditions.push({
+          field: 'status',
+          operator: '==',
+          value: filters.status
+        });
+      }
+
+      if (filters.type) {
+        whereConditions.push({
+          field: 'type',
+          operator: '==',
+          value: filters.type
+        });
+      }
+
+      if (filters.clientId) {
+        whereConditions.push({
+          field: 'clientId',
+          operator: '==',
+          value: filters.clientId
+        });
+      }
+
+      if (filters.startDate) {
+        whereConditions.push({
+          field: 'createdAt',
+          operator: '>=',
+          value: filters.startDate
+        });
+      }
+
+      if (filters.endDate) {
+        whereConditions.push({
+          field: 'createdAt',
+          operator: '<=',
+          value: filters.endDate
+        });
+      }
+
+      if (whereConditions.length > 0) {
+        queryOptions.where = whereConditions;
+      }
+
+      if (filters.limit) {
+        queryOptions.limit = filters.limit;
+      }
+
+      // Tri par défaut
+      queryOptions.orderBy = { field: 'createdAt', direction: 'desc' };
+
+      return await firestoreService.getCollection('transactions', queryOptions);
     } catch (error) {
-      throw new Error(error.response?.data?.message || 'Erreur lors du chargement des transactions');
+      throw new Error('Erreur lors du chargement des transactions');
     }
   }
 
@@ -30,10 +86,9 @@ class TransactionService {
    */
   async getTransaction(transactionId) {
     try {
-      const response = await http.get(`/transactions/${transactionId}`);
-      return response.data;
+      return await firestoreService.getDocument('transactions', transactionId);
     } catch (error) {
-      throw new Error(error.response?.data?.message || 'Erreur lors du chargement de la transaction');
+      throw new Error('Erreur lors du chargement de la transaction');
     }
   }
 
@@ -44,14 +99,20 @@ class TransactionService {
    */
   async createTransaction(transactionData) {
     try {
-      const response = await http.post('/transactions', {
+      const userId = this._getCurrentUserId();
+      if (!userId) {
+        throw new Error('Utilisateur non authentifié');
+      }
+
+      const transactionDoc = {
         ...transactionData,
-        userId: this._getCurrentUserId(),
-        createdAt: new Date().toISOString()
-      });
-      return response.data;
+        userId,
+        status: transactionData.status || 'pending'
+      };
+
+      return await firestoreService.createDocument('transactions', transactionDoc);
     } catch (error) {
-      throw new Error(error.response?.data?.message || 'Erreur lors de la création de la transaction');
+      throw new Error('Erreur lors de la création de la transaction');
     }
   }
 
@@ -63,10 +124,9 @@ class TransactionService {
    */
   async updateTransaction(transactionId, transactionData) {
     try {
-      const response = await http.patch(`/transactions/${transactionId}`, transactionData);
-      return response.data;
+      return await firestoreService.updateDocument('transactions', transactionId, transactionData);
     } catch (error) {
-      throw new Error(error.response?.data?.message || 'Erreur lors de la mise à jour de la transaction');
+      throw new Error('Erreur lors de la mise à jour de la transaction');
     }
   }
 
@@ -77,10 +137,10 @@ class TransactionService {
    */
   async deleteTransaction(transactionId) {
     try {
-      await http.delete(`/transactions/${transactionId}`);
+      await firestoreService.deleteDocument('transactions', transactionId);
       return { success: true };
     } catch (error) {
-      throw new Error(error.response?.data?.message || 'Erreur lors de la suppression de la transaction');
+      throw new Error('Erreur lors de la suppression de la transaction');
     }
   }
 
@@ -180,23 +240,20 @@ class TransactionService {
   }
 
   /**
-   * Récupération de l'ID utilisateur actuel
+   * Récupération de l'ID utilisateur actuel depuis Firebase Auth
    * @returns {string} - ID utilisateur
    */
   _getCurrentUserId() {
-    const token = localStorage.getItem('auth_token');
-    if (!token) return null;
-
-    // Token format: jwt-token-{userId}-{timestamp}
-    const parts = token.split('-');
-    if (parts.length >= 3 && parts[0] === 'jwt' && parts[1] === 'token') {
-      return parts[2];
+    try {
+      const userData = localStorage.getItem('auth_user');
+      if (userData) {
+        const user = JSON.parse(userData);
+        return user.id;
+      }
+      return null;
+    } catch (error) {
+      return null;
     }
-
-    // Fallback pour compatibilité
-    if (token.includes('user123')) return 'user123';
-    if (token.includes('user456')) return 'user456';
-    return null;
   }
 }
 

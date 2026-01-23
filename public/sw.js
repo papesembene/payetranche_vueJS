@@ -23,6 +23,13 @@ self.addEventListener('install', (event) => {
 
 // Fetch event - serve from cache when offline
 self.addEventListener('fetch', (event) => {
+  // Skip Firebase/Firestore requests to avoid conflicts
+  if (event.request.url.includes('firestore.googleapis.com') ||
+      event.request.url.includes('firebaseio.com') ||
+      event.request.url.includes('googleapis.com')) {
+    return; // Let Firebase handle these requests
+  }
+
   event.respondWith(
     caches.match(event.request)
       .then((response) => {

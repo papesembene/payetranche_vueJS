@@ -1,7 +1,8 @@
-import { http } from './http.js';
+import { firestoreService } from './firestore.service.js';
+import { auth } from '../firebase.js';
 
 /**
- * Service de gestion des clients
+ * Service de gestion des clients avec Firestore
  * Responsabilités : CRUD clients, recherche, statistiques
  */
 class ClientService {
@@ -12,14 +13,44 @@ class ClientService {
    */
   async getClients(filters = {}) {
     try {
-      const params = new URLSearchParams({
-        userId: this._getCurrentUserId(),
-        ...filters
-      });
-      const response = await http.get(`/clients?${params}`);
-      return response.data;
+      const userId = this._getCurrentUserId();
+      if (!userId) {
+        throw new Error('Utilisateur non authentifié');
+      }
+
+      let queryOptions = { userId };
+
+      // Appliquer les filtres
+      if (filters.status) {
+        queryOptions.where = [{
+          field: 'status',
+          operator: '==',
+          value: filters.status
+        }];
+      }
+
+      if (filters.limit) {
+        queryOptions.limit = filters.limit;
+      }
+
+      // Tri par défaut
+      queryOptions.orderBy = { field: 'createdAt', direction: 'desc' };
+
+      const clients = await firestoreService.getCollection('clients', queryOptions);
+
+      // Filtrage côté client pour la recherche si nécessaire
+      if (filters.search) {
+        const searchTerm = filters.search.toLowerCase();
+        return clients.filter(client =>
+          client.name?.toLowerCase().includes(searchTerm) ||
+          client.phone?.includes(searchTerm) ||
+          client.address?.toLowerCase().includes(searchTerm)
+        );
+      }
+
+      return clients;
     } catch (error) {
-      throw new Error(error.response?.data?.message || 'Erreur lors du chargement des clients');
+      throw new Error('Erreur lors du chargement des clients');
     }
   }
 
@@ -30,10 +61,9 @@ class ClientService {
    */
   async getClient(clientId) {
     try {
-      const response = await http.get(`/clients/${clientId}`);
-      return response.data;
+      return await firestoreService.getDocument('clients', clientId);
     } catch (error) {
-      throw new Error(error.response?.data?.message || 'Erreur lors du chargement du client');
+      throw new Error('Erreur lors du chargement du client');
     }
   }
 
@@ -44,15 +74,22 @@ class ClientService {
    */
   async createClient(clientData) {
     try {
-      const response = await http.post('/clients', {
+      const userId = this._getCurrentUserId();
+      if (!userId) {
+        throw new Error('Utilisateur non authentifié');
+      }
+
+      const clientDoc = {
         ...clientData,
-        userId: this._getCurrentUserId(),
+        userId,
         status: 'active',
-        createdAt: new Date().toISOString()
-      });
-      return response.data;
+        totalDebt: clientData.totalDebt || 0,
+        lastPayment: null
+      };
+
+      return await firestoreService.createDocument('clients', clientDoc);
     } catch (error) {
-      throw new Error(error.response?.data?.message || 'Erreur lors de la création du client');
+      throw new Error('Erreur lors de la création du client');
     }
   }
 
@@ -64,10 +101,9 @@ class ClientService {
    */
   async updateClient(clientId, clientData) {
     try {
-      const response = await http.patch(`/clients/${clientId}`, clientData);
-      return response.data;
+      return await firestoreService.updateDocument('clients', clientId, clientData);
     } catch (error) {
-      throw new Error(error.response?.data?.message || 'Erreur lors de la mise à jour du client');
+      throw new Error('Erreur lors de la mise à jour du client');
     }
   }
 
@@ -78,10 +114,10 @@ class ClientService {
    */
   async deleteClient(clientId) {
     try {
-      await http.delete(`/clients/${clientId}`);
+      await firestoreService.deleteDocument('clients', clientId);
       return { success: true };
     } catch (error) {
-      throw new Error(error.response?.data?.message || 'Erreur lors de la suppression du client');
+      throw new Error('Erreur lors de la suppression du client');
     }
   }
 
@@ -92,10 +128,15 @@ class ClientService {
    */
   async searchClients(query) {
     try {
-      const response = await http.get(`/clients?q=${encodeURIComponent(query)}`);
-      return response.data;
+      const userId = this._getCurrentUserId();
+      if (!userId) {
+        throw new Error('Utilisateur non authentifié');
+      }
+
+      // Recherche dans Firestore (limitée aux champs indexés)
+      return await firestoreService.searchDocuments('clients', 'name', query, { userId });
     } catch (error) {
-      throw new Error(error.response?.data?.message || 'Erreur lors de la recherche');
+      throw new Error('Erreur lors de la recherche');
     }
   }
 
@@ -125,23 +166,20 @@ class ClientService {
   }
 
   /**
-   * Récupération de l'ID utilisateur actuel
+   * Récupération de l'ID utilisateur actuel depuis Firebase Auth
    * @returns {string} - ID utilisateur
    */
   _getCurrentUserId() {
-    const token = localStorage.getItem('auth_token');
-    if (!token) return null;
-
-    // Token format: jwt-token-{userId}-{timestamp}
-    const parts = token.split('-');
-    if (parts.length >= 3 && parts[0] === 'jwt' && parts[1] === 'token') {
-      return parts[2];
+    try {
+      const userData = localStorage.getItem('auth_user');
+      if (userData) {
+        const user = JSON.parse(userData);
+        return user.id;
+      }
+      return null;
+    } catch (error) {
+      return null;
     }
-
-    // Fallback pour compatibilité
-    if (token.includes('user123')) return 'user123';
-    if (token.includes('user456')) return 'user456';
-    return null;
   }
 }
 

@@ -1,7 +1,8 @@
-import { http } from './http.js';
+import { firestoreService } from './firestore.service.js';
+import { auth } from '../firebase.js';
 
 /**
- * Service de gestion des abonnements
+ * Service de gestion des abonnements avec Firestore
  * Responsabilités : plans, création/modification/annulation d'abonnements
  */
 class SubscriptionService {
@@ -11,10 +12,9 @@ class SubscriptionService {
    */
   async getPlans() {
     try {
-      const response = await http.get('/subscriptionPlans');
-      return response.data;
+      return await firestoreService.getCollection('subscriptionPlans');
     } catch (error) {
-      throw new Error(error.response?.data?.message || 'Erreur lors du chargement des plans');
+      throw new Error('Erreur lors du chargement des plans');
     }
   }
 
@@ -25,10 +25,9 @@ class SubscriptionService {
    */
   async getPlan(planId) {
     try {
-      const response = await http.get(`/subscriptionPlans/${planId}`);
-      return response.data;
+      return await firestoreService.getDocument('subscriptionPlans', planId);
     } catch (error) {
-      throw new Error(error.response?.data?.message || 'Erreur lors du chargement du plan');
+      throw new Error('Erreur lors du chargement du plan');
     }
   }
 
@@ -40,8 +39,13 @@ class SubscriptionService {
    */
   async createSubscription(planId, paymentMethodId = null) {
     try {
+      const userId = this._getCurrentUserId();
+      if (!userId) {
+        throw new Error('Utilisateur non authentifié');
+      }
+
       const subscriptionData = {
-        userId: this._getCurrentUserId(),
+        userId,
         plan: planId,
         status: 'active',
         currentPeriodStart: new Date().toISOString(),
@@ -50,18 +54,28 @@ class SubscriptionService {
         stripeSubscriptionId: 'sub_mock_' + Date.now()
       };
 
-      const response = await http.post('/subscriptions', subscriptionData);
-      return { success: true, subscription: response.data };
+      const subscription = await firestoreService.createDocument('subscriptions', subscriptionData);
+      return { success: true, subscription };
     } catch (error) {
-      throw new Error(error.response?.data?.message || 'Erreur lors de la création de l\'abonnement');
+      throw new Error('Erreur lors de la création de l\'abonnement');
     }
   }
 
+  /**
+   * Récupération de l'ID utilisateur actuel depuis Firebase Auth
+   * @returns {string} - ID utilisateur
+   */
   _getCurrentUserId() {
-    const token = localStorage.getItem('auth_token');
-    if (token?.includes('user123')) return 'user123';
-    if (token?.includes('user456')) return 'user456';
-    return 'user123';
+    try {
+      const userData = localStorage.getItem('auth_user');
+      if (userData) {
+        const user = JSON.parse(userData);
+        return user.id;
+      }
+      return null;
+    } catch (error) {
+      return null;
+    }
   }
 
   /**
@@ -71,19 +85,22 @@ class SubscriptionService {
   async getCurrentSubscription() {
     try {
       const userId = this._getCurrentUserId();
-      const response = await http.get(`/subscriptions?userId=${userId}`);
-      return response.data[0] || null; // Retourner le premier abonnement trouvé
+      if (!userId) {
+        return null;
+      }
+
+      const subscriptions = await firestoreService.getCollection('subscriptions', {
+        userId,
+        orderBy: { field: 'createdAt', direction: 'desc' },
+        limit: 1
+      });
+
+      return subscriptions[0] || null;
     } catch (error) {
-      throw new Error(error.response?.data?.message || 'Erreur lors du chargement de l\'abonnement');
+      throw new Error('Erreur lors du chargement de l\'abonnement');
     }
   }
 
-  _getCurrentUserId() {
-    const token = localStorage.getItem('auth_token');
-    if (token?.includes('user123')) return 'user123';
-    if (token?.includes('user456')) return 'user456';
-    return 'user123';
-  }
 
   /**
    * Mise à jour de l'abonnement (changement de plan)
@@ -98,13 +115,12 @@ class SubscriptionService {
       }
 
       const updateData = {
-        plan: newPlanId,
-        updatedAt: new Date().toISOString()
+        plan: newPlanId
       };
-      const response = await http.patch(`/subscriptions/${currentSub.id}`, updateData);
-      return response.data;
+
+      return await firestoreService.updateDocument('subscriptions', currentSub.id, updateData);
     } catch (error) {
-      throw new Error(error.response?.data?.message || 'Erreur lors de la mise à jour de l\'abonnement');
+      throw new Error('Erreur lors de la mise à jour de l\'abonnement');
     }
   }
 
@@ -124,10 +140,10 @@ class SubscriptionService {
         cancelAtPeriodEnd,
         cancelledAt: new Date().toISOString()
       };
-      const response = await http.patch(`/subscriptions/${currentSub.id}`, updateData);
-      return response.data;
+
+      return await firestoreService.updateDocument('subscriptions', currentSub.id, updateData);
     } catch (error) {
-      throw new Error(error.response?.data?.message || 'Erreur lors de l\'annulation de l\'abonnement');
+      throw new Error('Erreur lors de l\'annulation de l\'abonnement');
     }
   }
 
@@ -147,10 +163,10 @@ class SubscriptionService {
         status: 'active',
         reactivatedAt: new Date().toISOString()
       };
-      const response = await http.patch(`/subscriptions/${currentSub.id}`, updateData);
-      return response.data;
+
+      return await firestoreService.updateDocument('subscriptions', currentSub.id, updateData);
     } catch (error) {
-      throw new Error(error.response?.data?.message || 'Erreur lors de la réactivation de l\'abonnement');
+      throw new Error('Erreur lors de la réactivation de l\'abonnement');
     }
   }
 

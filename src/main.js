@@ -5,6 +5,9 @@ import { createPinia } from 'pinia'
 import App from './App.vue'
 import router from './router'
 
+// Initialiser Firebase
+import './firebase.js'
+
 const app = createApp(App)
 const pinia = createPinia()
 

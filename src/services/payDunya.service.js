@@ -1,4 +1,6 @@
 import { http } from './http.js';
+import { firestoreService } from './firestore.service.js';
+import { useUserStore } from '../stores/user.js';
 
 /**
  * Service PayDunya pour les paiements Mobile Money
@@ -60,6 +62,35 @@ class PayDunyaService {
         console.log('PayDunya Invoice Data:', invoiceData);
         // Simuler une réponse PayDunya avec URL de test valide
         const invoiceToken = `inv_${Date.now()}`;
+
+        // Sauvegarder le paiement dans Firestore
+        try {
+          const userStore = useUserStore();
+          await firestoreService.savePayDunyaPayment({
+            userId: userData.id || userStore.user?.id,
+            type: 'subscription_renewal',
+            amount: subscriptionData.amount,
+            currency: subscriptionData.currency,
+            status: 'pending',
+            invoiceToken: invoiceToken,
+            subscriptionId: subscriptionData.id,
+            planId: subscriptionData.plan,
+            description: `Renouvellement abonnement ${subscriptionData.plan}`,
+            paymentUrl: `http://localhost:5173/payment/success?token=${invoiceToken}&status=completed`,
+            callbackUrl: `${window.location.origin}/payment/callback`,
+            customData: {
+              user_id: userData.id,
+              subscription_id: subscriptionData.id,
+              type: 'subscription_renewal',
+              plan: subscriptionData.plan
+            }
+          });
+          console.log('✅ Paiement PayDunya sauvegardé dans Firestore');
+        } catch (firestoreError) {
+          console.error('❌ Erreur sauvegarde Firestore:', firestoreError);
+          // Ne pas bloquer le paiement si Firestore échoue
+        }
+
         return {
           success: true,
           invoice_token: invoiceToken,
@@ -98,9 +129,11 @@ class PayDunyaService {
    */
   async checkPaymentStatus(invoiceToken) {
     try {
+      let paymentData;
+
       if (import.meta.env.DEV) {
         // Simulation pour développement
-        return {
+        paymentData = {
           success: true,
           status: 'completed',
           amount: 5000,
@@ -110,22 +143,39 @@ class PayDunyaService {
             type: 'subscription_renewal'
           }
         };
+      } else {
+        const response = await http.get(`${this.baseUrl}/checkout-invoice/confirm/${invoiceToken}`, {
+          headers: {
+            'PAYDUNYA-MASTER-KEY': this.masterKey,
+            'PAYDUNYA-PRIVATE-KEY': this.privateKey,
+            'PAYDUNYA-TOKEN': this.token
+          }
+        });
+
+        paymentData = {
+          success: response.data.response_code === '00',
+          status: response.data.invoice_data.status,
+          amount: response.data.invoice_data.total_amount,
+          custom_data: response.data.invoice_data.custom_data
+        };
       }
 
-      const response = await http.get(`${this.baseUrl}/checkout-invoice/confirm/${invoiceToken}`, {
-        headers: {
-          'PAYDUNYA-MASTER-KEY': this.masterKey,
-          'PAYDUNYA-PRIVATE-KEY': this.privateKey,
-          'PAYDUNYA-TOKEN': this.token
+      // Mettre à jour le statut dans Firestore
+      try {
+        const payment = await firestoreService.getPaymentByInvoiceToken(invoiceToken);
+        if (payment) {
+          await firestoreService.updatePaymentStatus(payment.id, paymentData.status, {
+            verifiedAt: new Date(),
+            verificationData: paymentData
+          });
+          console.log(`✅ Statut paiement mis à jour: ${paymentData.status}`);
         }
-      });
+      } catch (firestoreError) {
+        console.error('❌ Erreur mise à jour Firestore:', firestoreError);
+        // Ne pas bloquer la vérification si Firestore échoue
+      }
 
-      return {
-        success: response.data.response_code === '00',
-        status: response.data.invoice_data.status,
-        amount: response.data.invoice_data.total_amount,
-        custom_data: response.data.invoice_data.custom_data
-      };
+      return paymentData;
 
     } catch (error) {
       console.error('Erreur vérification paiement:', error);

@@ -1,54 +1,45 @@
-import { http } from './http.js';
+import { auth } from '../firebase.js';
+import { firestoreService } from './firestore.service.js';
 
 /**
- * Service de gestion des utilisateurs
+ * Service de gestion des utilisateurs avec Firestore
  * Responsabilités : profil utilisateur, préférences, statistiques
  */
 class UserService {
   /**
    * Récupération du profil utilisateur complet
-   * @param {string} userId - ID de l'utilisateur (optionnel, sinon depuis token)
+   * @param {string} userId - ID de l'utilisateur (optionnel, sinon utilisateur actuel)
    * @returns {Promise<Object>} - Données utilisateur avec abonnement et usage
    */
   async getProfile(userId = null) {
     try {
-      // Essayer de récupérer l'ID depuis le token ou utiliser celui fourni
-      const targetUserId = userId || this._getUserIdFromToken();
+      const targetUserId = userId || this._getCurrentUserId();
 
       if (!targetUserId) {
         throw new Error('Utilisateur non authentifié');
       }
 
-      const response = await http.get(`/users/${targetUserId}`);
-      return response.data;
+      return await firestoreService.getDocument('users', targetUserId);
     } catch (error) {
-      throw new Error(error.response?.data?.message || 'Erreur lors du chargement du profil');
+      throw new Error('Erreur lors du chargement du profil');
     }
   }
 
   /**
-   * Extraction de l'ID utilisateur depuis le token JWT (simplifié)
+   * Récupération de l'ID utilisateur actuel depuis Firebase Auth
    * @returns {string|null} - ID utilisateur ou null
    */
-  _getUserIdFromToken() {
-    // En production, décoder le JWT pour extraire l'userId
-    // Pour l'instant, on utilise une logique simple basée sur les tokens mock
-    const token = localStorage.getItem('auth_token');
-    if (!token) return null;
-
-    // Simulation : extraire l'ID depuis le token mock
-    // Pattern: jwt-token-{userId}-{timestamp}
-    const tokenParts = token.split('-');
-    if (tokenParts.length >= 3 && tokenParts[0] === 'jwt' && tokenParts[1] === 'token') {
-      return tokenParts[2]; // userId est la 3ème partie
+  _getCurrentUserId() {
+    try {
+      const userData = localStorage.getItem('auth_user');
+      if (userData) {
+        const user = JSON.parse(userData);
+        return user.id;
+      }
+      return null;
+    } catch (error) {
+      return null;
     }
-
-    // Fallback pour les anciens tokens
-    if (token.includes('user123')) return 'user123';
-    if (token.includes('user456')) return 'user456';
-    if (token.includes('user1767023258025')) return 'user1767023258025';
-
-    return null;
   }
 
   /**
@@ -58,67 +49,38 @@ class UserService {
    */
   async updateProfile(profileData) {
     try {
-      const userId = this._getUserIdFromToken();
+      const userId = this._getCurrentUserId();
       if (!userId) {
         throw new Error('Utilisateur non authentifié');
       }
 
-      const response = await http.patch(`/users/${userId}`, profileData);
-      return response.data;
+      return await firestoreService.updateDocument('users', userId, profileData);
     } catch (error) {
-      throw new Error(error.response?.data?.message || 'Erreur lors de la mise à jour du profil');
+      throw new Error('Erreur lors de la mise à jour du profil');
     }
   }
 
   /**
-   * Changement de mot de passe
-   * @param {Object} passwordData - { currentPassword, newPassword }
-   * @returns {Promise<Object>} - { success }
+   * Mise à jour des statistiques d'usage
+   * @param {Object} usageData - Données d'usage à mettre à jour
+   * @returns {Promise<Object>} - Profil mis à jour
    */
-  async changePassword(passwordData) {
+  async updateUsage(usageData) {
     try {
-      const response = await http.put('/user/change-password', passwordData);
-      return response.data;
-    } catch (error) {
-      throw new Error(error.response?.data?.message || 'Erreur lors du changement de mot de passe');
-    }
-  }
+      const userId = this._getCurrentUserId();
+      if (!userId) {
+        throw new Error('Utilisateur non authentifié');
+      }
 
-  /**
-   * Mise à jour de l'avatar
-   * @param {File} avatarFile - Fichier image
-   * @returns {Promise<Object>} - { avatarUrl }
-   */
-  async updateAvatar(avatarFile) {
-    try {
-      const formData = new FormData();
-      formData.append('avatar', avatarFile);
+      const userProfile = await this.getProfile(userId);
+      const updatedUsage = {
+        ...userProfile.usage,
+        ...usageData
+      };
 
-      const response = await http.post('/user/avatar', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data'
-        }
-      });
-      return response.data;
+      return await firestoreService.updateDocument('users', userId, { usage: updatedUsage });
     } catch (error) {
-      throw new Error(error.response?.data?.message || 'Erreur lors de la mise à jour de l\'avatar');
-    }
-  }
-
-  /**
-   * Suppression du compte utilisateur
-   * @param {string} password - Mot de passe de confirmation
-   * @returns {Promise<Object>} - { success }
-   */
-  async deleteAccount(password) {
-    try {
-      const response = await http.delete('/user/account', {
-        data: { password }
-      });
-      localStorage.removeItem('auth_token');
-      return response.data;
-    } catch (error) {
-      throw new Error(error.response?.data?.message || 'Erreur lors de la suppression du compte');
+      throw new Error('Erreur lors de la mise à jour des statistiques');
     }
   }
 
@@ -129,11 +91,39 @@ class UserService {
    */
   async getStatistics(filters = {}) {
     try {
-      const params = new URLSearchParams(filters);
-      const response = await http.get(`/user/statistics?${params}`);
-      return response.data;
+      const userId = this._getCurrentUserId();
+      if (!userId) {
+        throw new Error('Utilisateur non authentifié');
+      }
+
+      // Récupérer les transactions de l'utilisateur
+      const transactions = await firestoreService.getCollection('transactions', {
+        userId,
+        where: filters.startDate ? [{
+          field: 'createdAt',
+          operator: '>=',
+          value: filters.startDate
+        }] : [],
+        orderBy: { field: 'createdAt', direction: 'desc' }
+      });
+
+      // Calculer les statistiques
+      const stats = {
+        totalTransactions: transactions.length,
+        completedTransactions: transactions.filter(t => t.status === 'completed').length,
+        pendingTransactions: transactions.filter(t => t.status === 'pending').length,
+        totalAmount: transactions.reduce((sum, t) => sum + (t.amount || 0), 0),
+        completedAmount: transactions
+          .filter(t => t.status === 'completed')
+          .reduce((sum, t) => sum + (t.amount || 0), 0),
+        pendingAmount: transactions
+          .filter(t => t.status === 'pending')
+          .reduce((sum, t) => sum + (t.amount || 0), 0)
+      };
+
+      return stats;
     } catch (error) {
-      throw new Error(error.response?.data?.message || 'Erreur lors du chargement des statistiques');
+      throw new Error('Erreur lors du chargement des statistiques');
     }
   }
 
@@ -143,12 +133,26 @@ class UserService {
    */
   async exportData() {
     try {
-      const response = await http.get('/user/export', {
-        responseType: 'blob'
-      });
-      return response.data;
+      const userId = this._getCurrentUserId();
+      if (!userId) {
+        throw new Error('Utilisateur non authentifié');
+      }
+
+      // Récupérer toutes les données de l'utilisateur
+      const [userProfile, clients, transactions] = await Promise.all([
+        this.getProfile(userId),
+        firestoreService.getCollection('clients', { userId }),
+        firestoreService.getCollection('transactions', { userId })
+      ]);
+
+      return {
+        user: userProfile,
+        clients,
+        transactions,
+        exportedAt: new Date().toISOString()
+      };
     } catch (error) {
-      throw new Error(error.response?.data?.message || 'Erreur lors de l\'export des données');
+      throw new Error('Erreur lors de l\'export des données');
     }
   }
 
@@ -159,10 +163,14 @@ class UserService {
    */
   async updatePreferences(preferences) {
     try {
-      const response = await http.put('/user/preferences', preferences);
-      return response.data;
+      const userId = this._getCurrentUserId();
+      if (!userId) {
+        throw new Error('Utilisateur non authentifié');
+      }
+
+      return await firestoreService.updateDocument('users', userId, { preferences });
     } catch (error) {
-      throw new Error(error.response?.data?.message || 'Erreur lors de la mise à jour des préférences');
+      throw new Error('Erreur lors de la mise à jour des préférences');
     }
   }
 
@@ -172,8 +180,17 @@ class UserService {
    */
   async getPreferences() {
     try {
-      const response = await http.get('/user/preferences');
-      return response.data;
+      const userProfile = await this.getProfile();
+      return userProfile.preferences || {
+        language: 'fr',
+        timezone: 'Africa/Dakar',
+        notifications: {
+          email: true,
+          push: true,
+          sms: false
+        },
+        theme: 'light'
+      };
     } catch (error) {
       // Retourner des préférences par défaut en cas d'erreur
       return {

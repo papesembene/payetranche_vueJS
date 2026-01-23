@@ -1,85 +1,66 @@
-import { http } from './http.js';
+import { db } from '../firebase.js';
+import { doc, getDoc, setDoc, collection, query, where, getDocs } from 'firebase/firestore';
 
 /**
- * Service d'authentification
- * Responsabilités : connexion, inscription, déconnexion, vérification token
+ * Service d'authentification simplifiée
+ * Responsabilités : connexion directe par numéro de téléphone
  */
 class AuthService {
   /**
-   * Connexion utilisateur
-   * @param {Object} credentials - { phone, otp }
-   * @returns {Promise<Object>} - { success, token, user }
+   * Connexion directe par numéro de téléphone
+   * @param {Object} credentials - { phone }
+   * @returns {Promise<Object>} - { success, user }
    */
   async login(credentials) {
     try {
-      // JSON Server - récupération complète des données utilisateur
-      const usersResponse = await http.get(`/users?phone=${credentials.phone}`);
-      const users = usersResponse.data;
+      const phoneNumber = credentials.phone;
 
-      if (users.length === 0) {
-        throw new Error('Utilisateur non trouvé');
+      // Validation du numéro
+      if (!this._validatePhoneNumber(phoneNumber)) {
+        throw new Error('Numéro de téléphone invalide');
       }
 
-      const user = users[0];
+      // Récupérer ou créer l'utilisateur
+      const userData = await this._getOrCreateUserData(phoneNumber);
 
-      const token = `jwt-token-${user.id}-${Date.now()}`;
-      localStorage.setItem('auth_token', token);
+      // Sauvegarder localement
+      localStorage.setItem('auth_user', JSON.stringify(userData));
 
-      // Retourner toutes les données utilisateur, y compris l'abonnement et l'usage
       return {
         success: true,
-        token,
-        user: {
-          id: user.id,
-          phone: user.phone,
-          name: user.name,
-          avatar: user.avatar,
-          createdAt: user.createdAt,
-          subscription: user.subscription,
-          usage: user.usage
-        }
+        user: userData
       };
     } catch (error) {
-      throw new Error(error.response?.data?.message || error.message || 'Erreur de connexion');
+      throw new Error(error.message || 'Erreur de connexion');
     }
   }
 
   /**
-   * Inscription nouvel utilisateur
+   * Inscription d'un nouvel utilisateur
    * @param {Object} userData - { name, phone }
    * @returns {Promise<Object>} - { success, user }
    */
   async register(userData) {
     try {
-      // JSON Server - ajout d'utilisateur
-      const newUser = {
-        id: `user${Date.now()}`,
-        name: userData.name,
-        phone: userData.phone,
-        avatar: userData.name.charAt(0).toUpperCase(),
-        createdAt: new Date().toISOString(),
-        subscription: {
-          id: `sub_${Date.now()}`,
-          plan: "free",
-          status: "active",
-          currentPeriodStart: new Date().toISOString(),
-          currentPeriodEnd: null,
-          cancelAtPeriodEnd: false,
-          trialEnd: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(), // 14 jours
-          recurringPayment: false,
-          paydunyaToken: null
-        },
-        usage: {
-          clients: 0,
-          payments: 0,
-          totalAmount: 0
-        }
-      };
+      const phoneNumber = userData.phone;
 
-      const response = await http.post('/users', newUser);
-      return { success: true, user: response.data };
+      // Validation du numéro
+      if (!this._validatePhoneNumber(phoneNumber)) {
+        throw new Error('Numéro de téléphone invalide');
+      }
+
+      // Créer ou récupérer l'utilisateur
+      const userDataComplete = await this._getOrCreateUserData(phoneNumber, userData.name);
+
+      // Sauvegarder localement
+      localStorage.setItem('auth_user', JSON.stringify(userDataComplete));
+
+      return {
+        success: true,
+        user: userDataComplete
+      };
     } catch (error) {
-      throw new Error(error.response?.data?.message || error.message || 'Erreur d\'inscription');
+      throw new Error(error.message || 'Erreur lors de l\'inscription');
     }
   }
 
@@ -89,13 +70,10 @@ class AuthService {
    */
   async logout() {
     try {
-      localStorage.removeItem('auth_token');
-      // Optionnel : appel API pour invalider le token côté serveur
-      // await http.post('/auth/logout');
+      // Nettoyer les données locales
+      localStorage.removeItem('auth_user');
       return { success: true };
     } catch (error) {
-      // Même en cas d'erreur, on supprime le token local
-      localStorage.removeItem('auth_token');
       return { success: true };
     }
   }
@@ -105,62 +83,116 @@ class AuthService {
    * @returns {Promise<Object>} - { valid, user? }
    */
   async verifyToken() {
-    const token = localStorage.getItem('auth_token');
-    if (!token) {
+    try {
+      const userData = localStorage.getItem('auth_user');
+      if (!userData) {
+        return { valid: false };
+      }
+
+      const user = JSON.parse(userData);
+      return { valid: true, user };
+    } catch (error) {
+      localStorage.removeItem('auth_user');
       return { valid: false };
     }
+  }
 
+  /**
+   * Mise à jour du profil utilisateur
+   * @param {Object} profileData - Données à mettre à jour
+   * @returns {Promise<Object>} - Profil mis à jour
+   */
+  async updateProfile(profileData) {
     try {
-      const response = await http.get('/auth/verify');
-      return { valid: true, user: response.data.user };
+      const currentUser = JSON.parse(localStorage.getItem('auth_user') || '{}');
+      if (!currentUser.id) {
+        throw new Error('Utilisateur non connecté');
+      }
+
+      const updatedUser = { ...currentUser, ...profileData };
+
+      // Mettre à jour Firestore
+      await setDoc(doc(db, 'users', currentUser.id), updatedUser, { merge: true });
+
+      // Mettre à jour localStorage
+      localStorage.setItem('auth_user', JSON.stringify(updatedUser));
+
+      return updatedUser;
     } catch (error) {
-      localStorage.removeItem('auth_token');
-      return { valid: false };
+      throw new Error('Erreur lors de la mise à jour du profil');
     }
   }
 
   /**
-   * Rafraîchissement du token
-   * @returns {Promise<Object>} - { success, token }
+   * Validation du numéro de téléphone sénégalais
+   * @param {string} phoneNumber - Numéro à valider
+   * @returns {boolean} - true si valide
    */
-  async refreshToken() {
-    try {
-      const response = await http.post('/auth/refresh');
-      const { token } = response.data;
-      localStorage.setItem('auth_token', token);
-      return { success: true, token };
-    } catch (error) {
-      localStorage.removeItem('auth_token');
-      throw new Error('Impossible de rafraîchir le token');
+  _validatePhoneNumber(phoneNumber) {
+    if (!phoneNumber || phoneNumber.trim() === '') {
+      return false;
     }
+
+    // Nettoyer le numéro
+    const cleaned = phoneNumber.replace(/\s+/g, '').replace(/^\+221/, '');
+
+    // Vérifier le format sénégalais
+    const validPrefixes = ['70', '71', '75', '76', '77', '78'];
+    return cleaned.length === 9 && validPrefixes.some(prefix => cleaned.startsWith(prefix));
   }
 
   /**
-   * Demande de réinitialisation de mot de passe
-   * @param {string} email
-   * @returns {Promise<Object>} - { success }
+   * Récupération ou création des données utilisateur dans Firestore
+   * @param {string} phoneNumber - Numéro de téléphone
+   * @param {string} name - Nom de l'utilisateur (optionnel)
+   * @returns {Promise<Object>} - Données utilisateur complètes
    */
-  async requestPasswordReset(email) {
+  async _getOrCreateUserData(phoneNumber, name = null) {
     try {
-      await http.post('/auth/forgot-password', { email });
-      return { success: true };
-    } catch (error) {
-      throw new Error(error.response?.data?.message || 'Erreur lors de la demande');
-    }
-  }
+      // Chercher l'utilisateur par numéro de téléphone
+      const usersRef = collection(db, 'users');
+      const q = query(usersRef, where('phone', '==', phoneNumber));
+      const querySnapshot = await getDocs(q);
 
-  /**
-   * Réinitialisation du mot de passe
-   * @param {string} token
-   * @param {string} newPassword
-   * @returns {Promise<Object>} - { success }
-   */
-  async resetPassword(token, newPassword) {
-    try {
-      await http.post('/auth/reset-password', { token, password: newPassword });
-      return { success: true };
+      if (!querySnapshot.empty) {
+        // Utilisateur existe
+        const userDoc = querySnapshot.docs[0];
+        return {
+          id: userDoc.id,
+          ...userDoc.data()
+        };
+      } else {
+        // Créer un nouvel utilisateur
+        const userId = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        const defaultUserData = {
+          id: userId,
+          phone: phoneNumber,
+          name: name || `Utilisateur ${phoneNumber.slice(-4)}`,
+          avatar: phoneNumber.slice(-1).toUpperCase(),
+          createdAt: new Date().toISOString(),
+          subscription: {
+            id: `sub_${Date.now()}`,
+            plan: "free",
+            status: "active",
+            currentPeriodStart: new Date().toISOString(),
+            currentPeriodEnd: null,
+            cancelAtPeriodEnd: false,
+            trialEnd: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
+            recurringPayment: false,
+            paydunyaToken: null
+          },
+          usage: {
+            clients: 0,
+            payments: 0,
+            totalAmount: 0
+          }
+        };
+
+        await setDoc(doc(db, 'users', userId), defaultUserData);
+        return defaultUserData;
+      }
     } catch (error) {
-      throw new Error(error.response?.data?.message || 'Erreur lors de la réinitialisation');
+      throw new Error('Erreur récupération données utilisateur');
     }
   }
 }
