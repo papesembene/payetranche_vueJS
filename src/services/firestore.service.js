@@ -16,6 +16,7 @@ import {
   Timestamp
 } from 'firebase/firestore';
 import { db } from '../firebase.js';
+import { offlineService } from './offline.service.js';
 
 /**
  * Service Firestore pour les opérations de base de données
@@ -77,6 +78,16 @@ class FirestoreService {
       if (import.meta.env.DEV) {
         console.log(`✅ ${documents.length} documents récupérés de ${collectionName}`);
       }
+
+      // Sauvegarder dans IndexedDB pour le mode offline
+      if (documents.length > 0 && offlineService) {
+        try {
+          offlineService.saveData(collectionName, documents);
+        } catch (offlineError) {
+          console.warn('⚠️ Erreur sauvegarde offline:', offlineError);
+        }
+      }
+
       return documents;
     } catch (error) {
       // Erreurs toujours affichées pour le debugging

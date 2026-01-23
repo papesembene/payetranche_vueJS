@@ -1,6 +1,9 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue';
-import { DollarSign, Menu, X } from 'lucide-vue-next';
+import { DollarSign, Menu, X, Wifi, WifiOff } from 'lucide-vue-next';
+import { useOffline } from '../composables/useOffline.js';
+
+const { isOnline, connectionStatus } = useOffline();
 
 const isScrolled = ref(false);
 const isMobileMenuOpen = ref(false);
@@ -41,19 +44,19 @@ onUnmounted(() => {
       <div class="flex justify-between items-center h-20">
         <!-- Logo -->
         <div class="flex items-center gap-3">
-          <div 
+          <div
             :class="[
               'w-10 h-10 rounded-full flex items-center justify-center shadow-sm transition-colors',
               isScrolled ? 'bg-teal-500' : 'bg-white'
             ]"
           >
-            <DollarSign 
-              :size="22" 
-              :stroke-width="2.5" 
+            <DollarSign
+              :size="22"
+              :stroke-width="2.5"
               :class="isScrolled ? 'text-white' : 'text-gray-800'"
             />
           </div>
-          <span 
+          <span
             :class="[
               'text-2xl font-bold tracking-tight transition-colors',
               isScrolled ? 'text-gray-900' : 'text-white'
@@ -61,6 +64,20 @@ onUnmounted(() => {
           >
             PayTranche
           </span>
+
+          <!-- Online/Offline Indicator -->
+          <div
+            :class="[
+              'hidden md:flex items-center gap-2 px-3 py-1 rounded-full text-sm font-medium transition-all',
+              connectionStatus.bgColor,
+              connectionStatus.color
+            ]"
+            :title="connectionStatus.message"
+          >
+            <Wifi v-if="isOnline" :size="14" />
+            <WifiOff v-else :size="14" />
+            <span class="hidden lg:inline">{{ connectionStatus.message }}</span>
+          </div>
         </div>
 
         <!-- Navigation Links -->
