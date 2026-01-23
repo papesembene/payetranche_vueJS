@@ -312,39 +312,60 @@ const persistUserData = () => {
 
 // Initialisation automatique au chargement de l'app
 const initAuth = async () => {
-  const userData = localStorage.getItem('auth_user');
-  if (userData) {
-    loading.value = true;
-    try {
-      // Charger d'abord les plans par défaut pour éviter les erreurs d'affichage
-      loadDefaultPlansIfNeeded();
+  loading.value = true;
+  try {
+    // Charger d'abord les plans par défaut pour éviter les erreurs d'affichage
+    loadDefaultPlansIfNeeded();
 
-      // Charger les données utilisateur depuis localStorage
-      const parsedUserData = JSON.parse(userData);
-      user.value = parsedUserData;
-      isAuthenticated.value = true;
+    const userData = localStorage.getItem('auth_user');
+    if (userData) {
+      try {
+        // Charger les données utilisateur depuis localStorage
+        const parsedUserData = JSON.parse(userData);
+        user.value = parsedUserData;
+        isAuthenticated.value = true;
 
-      // Synchroniser avec le userStore
-      const userStore = useUserStore();
-      userStore.user = parsedUserData;
-      userStore.isAuthenticated = true;
+        // Synchroniser avec le userStore
+        const userStore = useUserStore();
+        userStore.user = parsedUserData;
+        userStore.isAuthenticated = true;
 
-      if (import.meta.env.DEV) {
-        console.log('✅ Utilisateur chargé depuis localStorage:', parsedUserData.name);
+        // Vérifier et rafraîchir les données depuis Firebase (pour PWA)
+        try {
+          const freshUserData = await userService.getProfile();
+          if (freshUserData && freshUserData.id === parsedUserData.id) {
+            // Mettre à jour avec les données fraîches
+            user.value = freshUserData;
+            localStorage.setItem('auth_user', JSON.stringify(freshUserData));
+            userStore.user = freshUserData;
+          }
+        } catch (refreshError) {
+          // Si échec du rafraîchissement, garder les données locales
+          console.warn('Impossible de rafraîchir les données utilisateur:', refreshError.message);
+        }
+
+        if (import.meta.env.DEV) {
+          console.log('✅ Utilisateur chargé depuis localStorage:', parsedUserData.name);
+        }
+      } catch (parseError) {
+        console.warn('Erreur parsing données utilisateur:', parseError.message);
+        // Données corrompues, nettoyer
+        localStorage.removeItem('auth_user');
+        localStorage.removeItem('user_data');
+        user.value = null;
+        isAuthenticated.value = false;
       }
-    } catch (error) {
-      console.warn('Erreur chargement données utilisateur:', error.message);
-      // Données corrompues, nettoyer
-      localStorage.removeItem('auth_user');
-      localStorage.removeItem('user_data');
+    } else {
+      // Pas de données utilisateur en localStorage
       user.value = null;
       isAuthenticated.value = false;
-    } finally {
-      loading.value = false;
     }
-  } else {
-    // Pas de données utilisateur, s'assurer que les plans sont disponibles
-    loadDefaultPlansIfNeeded();
+  } catch (error) {
+    console.error('Erreur initialisation auth:', error);
+    user.value = null;
+    isAuthenticated.value = false;
+  } finally {
+    loading.value = false;
   }
 };
 
