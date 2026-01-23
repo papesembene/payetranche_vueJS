@@ -84,11 +84,16 @@ class ClientService {
         throw new Error('Numéro de téléphone invalide. Veuillez entrer un numéro sénégalais valide.');
       }
 
+      // Validation de la dette (doit être > 0)
+      if (!clientData.totalDebt || clientData.totalDebt <= 0) {
+        throw new Error('Le montant de la dette doit être supérieur à 0 FCFA.');
+      }
+
       const clientDoc = {
         ...clientData,
         userId,
         status: 'active',
-        totalDebt: clientData.totalDebt || 0,
+        totalDebt: clientData.totalDebt,
         lastPayment: null
       };
 

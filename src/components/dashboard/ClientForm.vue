@@ -24,7 +24,7 @@ const form = ref({
   name: '',
   address: '',
   phone: '',
-  totalDebt: 0
+  totalDebt: null // Initialement null pour forcer l'utilisateur à entrer une valeur
 });
 const loading = ref(false);
 const currentStep = ref(1);
@@ -37,7 +37,7 @@ const resetForm = () => {
     name: '',
     address: '',
     phone: '',
-    totalDebt: 0
+    totalDebt: null // Initialement null pour forcer l'utilisateur à entrer une valeur
   };
 };
 
@@ -96,8 +96,8 @@ const handleStepAction = async () => {
         alert('Veuillez entrer l\'adresse du client');
         return;
       }
-      if (form.value.totalDebt < 0) {
-        alert('Le montant de la dette ne peut pas être négatif');
+      if (!form.value.totalDebt || form.value.totalDebt <= 0) {
+        alert('Le montant de la dette doit être supérieur à 0 FCFA. Un client sans dette n\'a pas de sens.');
         return;
       }
     }
@@ -276,16 +276,18 @@ const closeModal = () => {
 
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-2">
-                💰 Total dette (FCFA)
+                💰 Total dette (FCFA) <span class="text-red-500">*</span>
               </label>
               <input
                 v-model.number="form.totalDebt"
                 type="number"
-                min="0"
+                min="1"
                 step="100"
                 class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                placeholder="0"
+                placeholder="Obligatoire - minimum 1 FCFA"
+                required
               />
+              <p class="text-xs text-gray-500 mt-1">La dette doit être supérieure à 0 FCFA</p>
             </div>
           </div>
         </div>
