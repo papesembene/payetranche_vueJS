@@ -147,27 +147,6 @@ const hasFeatureCheck = (feature) => {
   return false;
 };
 
-// Mock user data pour les tests - a remplacer par des appels API reels
-const mockUser = {
-  id: 'user123',
-  phone: '771234567',
-  name: 'Amadou Diallo',
-  avatar: 'A',
-  createdAt: '2024-01-15',
-  subscription: {
-    plan: 'essential', // free, essential, pro, enterprise
-    status: 'expired', // active, trial, expired, cancelled, past_due
-    currentPeriodStart: '2024-11-01',
-    currentPeriodEnd: '2024-12-01', // Date passée = expiré
-    cancelAtPeriodEnd: false,
-    trialEnd: null
-  },
-  usage: {
-    clients: 12,
-    payments: 45,
-    totalAmount: 250000 // FCFA
-  }
-};
 
 // Actions
 const register = async (userData) => {
