@@ -3,50 +3,10 @@ import { authService } from '../services/auth.service.js';
 import { userService } from '../services/user.service.js';
 import { subscriptionService } from '../services/subscription.service.js';
 import { useUserStore } from '../stores/user.js';
+import { subscriptionPlans as defaultPlans } from '../data/subscriptionPlans.js';
 
 const user = ref(null);
-const subscriptionPlans = ref({
-  free: {
-    id: 'free',
-    name: 'Essai gratuit',
-    price: 0,
-    currency: 'FCFA',
-    billing: 'mensuel',
-    limits: { maxClients: 5, maxPayments: 50, maxPaymentAmount: 100000 },
-    features: ['basic_dashboard', 'client_management', 'payment_tracking'],
-    description: 'Essai gratuit de 14 jours'
-  },
-  essential: {
-    id: 'essential',
-    name: 'Essentiel',
-    price: 5000,
-    currency: 'FCFA',
-    billing: 'mensuel',
-    limits: { maxClients: 50, maxPayments: 500, maxPaymentAmount: 500000 },
-    features: ['basic_dashboard', 'client_management', 'payment_tracking', 'payment_reminders', 'basic_reports', 'email_support'],
-    description: 'Pour les petits commerçants'
-  },
-  pro: {
-    id: 'pro',
-    name: 'Pro',
-    price: 15000,
-    currency: 'FCFA',
-    billing: 'mensuel',
-    limits: { maxClients: 200, maxPayments: 2000, maxPaymentAmount: 2000000 },
-    features: ['all_essential', 'advanced_analytics', 'api_access', 'priority_support', 'custom_reminders', 'export_data'],
-    description: 'Pour les entreprises en croissance'
-  },
-  enterprise: {
-    id: 'enterprise',
-    name: 'Entreprise',
-    price: 50000,
-    currency: 'FCFA',
-    billing: 'mensuel',
-    limits: { maxClients: -1, maxPayments: -1, maxPaymentAmount: -1 },
-    features: ['all_pro', 'custom_integrations', 'white_label', 'dedicated_support', 'multi_user', 'advanced_security'],
-    description: 'Pour les grandes organisations'
-  }
-});
+const subscriptionPlans = ref(defaultPlans);
 const isAuthenticated = ref(false);
 const loading = ref(false);
 
@@ -338,48 +298,7 @@ const loadPersistedUserData = () => {
 const loadDefaultPlansIfNeeded = () => {
   if (Object.keys(subscriptionPlans.value).length === 0) {
     console.log('⚠️ Aucun plan chargé, utilisation des plans par défaut');
-    subscriptionPlans.value = {
-      free: {
-        id: 'free',
-        name: 'Essai gratuit',
-        price: 0,
-        currency: 'FCFA',
-        billing: 'mensuel',
-        limits: { maxClients: 5, maxPayments: 50, maxPaymentAmount: 100000 },
-        features: ['basic_dashboard', 'client_management', 'payment_tracking'],
-        description: 'Essai gratuit de 14 jours'
-      },
-      essential: {
-        id: 'essential',
-        name: 'Essentiel',
-        price: 5000,
-        currency: 'FCFA',
-        billing: 'mensuel',
-        limits: { maxClients: 50, maxPayments: 500, maxPaymentAmount: 500000 },
-        features: ['basic_dashboard', 'client_management', 'payment_tracking', 'payment_reminders', 'basic_reports', 'email_support'],
-        description: 'Pour les petits commerçants'
-      },
-      pro: {
-        id: 'pro',
-        name: 'Pro',
-        price: 15000,
-        currency: 'FCFA',
-        billing: 'mensuel',
-        limits: { maxClients: 200, maxPayments: 2000, maxPaymentAmount: 2000000 },
-        features: ['all_essential', 'advanced_analytics', 'api_access', 'priority_support', 'custom_reminders', 'export_data'],
-        description: 'Pour les entreprises en croissance'
-      },
-      enterprise: {
-        id: 'enterprise',
-        name: 'Entreprise',
-        price: 50000,
-        currency: 'FCFA',
-        billing: 'mensuel',
-        limits: { maxClients: -1, maxPayments: -1, maxPaymentAmount: -1 },
-        features: ['all_pro', 'custom_integrations', 'white_label', 'dedicated_support', 'multi_user', 'advanced_security'],
-        description: 'Pour les grandes organisations'
-      }
-    };
+    subscriptionPlans.value = defaultPlans;
     console.log('✅ Plans par défaut chargés');
   }
 };
