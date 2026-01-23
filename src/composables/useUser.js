@@ -451,11 +451,12 @@ const syncUsageCounts = async () => {
     // Compter les vrais clients
     const realClientCount = clients?.length || 0;
     
-    // Compter les vrais paiements
-    const realPaymentCount = transactions?.length || 0;
+    // Compter SEULEMENT les paiements effectués (statut 'completed')
+    const completedTransactions = transactions?.filter(t => t.status === 'completed') || [];
+    const realPaymentCount = completedTransactions.length;
     
-    // Calculer le montant total des paiements
-    const totalAmount = transactions?.reduce((sum, t) => sum + (t.amount || 0), 0) || 0;
+    // Calculer le montant total des paiements COMPLÉTÉS uniquement
+    const totalAmount = completedTransactions.reduce((sum, t) => sum + (t.amount || 0), 0) || 0;
     
     // Mettre à jour si différent
     if (user.value.usage) {

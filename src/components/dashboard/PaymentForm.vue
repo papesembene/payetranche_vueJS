@@ -140,10 +140,8 @@ const handleSubmit = async () => {
       await createSinglePayment();
     }
 
-    // Update user usage
-    userStore.updateUsage('payments', paymentData.value.isInstallment ? paymentData.value.installmentCount : 1);
-    
-    // Force synchronization with real database count
+    // Synchronize with actual completed payments count from database
+    // (new payments are 'pending', only 'completed' ones count toward usage limit)
     await syncUsageCounts();
 
     emit('saved');
