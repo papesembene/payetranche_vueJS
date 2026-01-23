@@ -180,11 +180,12 @@ const prevStep = () => {
 };
 
 const speak = (text) => {
-  if ('speechSynthesis' in window) {
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = 'fr-FR';
-    speechSynthesis.speak(utterance);
-  }
+  // Voice guidance disabled - users found it distracting
+  // if ('speechSynthesis' in window) {
+  //   const utterance = new SpeechSynthesisUtterance(text);
+  //   utterance.lang = 'fr-FR';
+  //   speechSynthesis.speak(utterance);
+  // }
 };
 
 
