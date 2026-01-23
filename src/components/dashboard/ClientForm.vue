@@ -288,7 +288,7 @@ const closeModal = () => {
                 v-model.number="form.totalDebt"
                 type="number"
                 min="1"
-                step="100"
+                step="any"
                 class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                 placeholder="Obligatoire - minimum 1 FCFA"
                 required
