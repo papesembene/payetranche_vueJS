@@ -169,12 +169,32 @@ class TransactionService {
    */
   async getOverdueTransactions() {
     try {
-      const today = new Date().toISOString().split('T')[0];
-      const transactions = await this.getTransactions({
-        status: 'pending',
-        dueDate_lte: today
+      const userId = this._getCurrentUserId();
+      if (!userId) {
+        throw new Error('Utilisateur non authentifié');
+      }
+
+      // Récupérer toutes les transactions pending
+      const pendingTransactions = await firestoreService.getCollection('transactions', {
+        userId,
+        where: [{ field: 'status', operator: '==', value: 'pending' }],
+        orderBy: { field: 'createdAt', direction: 'desc' }
       });
-      return transactions;
+
+      // Filtrer côté client les transactions en retard
+      const today = new Date();
+      today.setHours(0, 0, 0, 0); // Début de journée
+
+      const overdueTransactions = pendingTransactions.filter(transaction => {
+        if (!transaction.dueDate) return false;
+
+        const dueDate = new Date(transaction.dueDate);
+        dueDate.setHours(0, 0, 0, 0); // Début de journée
+
+        return dueDate < today;
+      });
+
+      return overdueTransactions;
     } catch (error) {
       throw new Error('Erreur lors du chargement des transactions en retard');
     }
@@ -189,11 +209,22 @@ class TransactionService {
     try {
       const transactions = await this.getTransactions(dateRange);
 
+      // Calculer les transactions en retard
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const overdueCount = transactions.filter(t => {
+        if (t.status !== 'pending' || !t.dueDate) return false;
+        const dueDate = new Date(t.dueDate);
+        dueDate.setHours(0, 0, 0, 0);
+        return dueDate < today;
+      }).length;
+
       const stats = {
         total: transactions.length,
         completed: transactions.filter(t => t.status === 'completed').length,
         pending: transactions.filter(t => t.status === 'pending').length,
-        overdue: transactions.filter(t => t.status === 'pending' && new Date(t.dueDate) < new Date()).length,
+        overdue: overdueCount,
         totalAmount: transactions.reduce((sum, t) => sum + (t.amount || 0), 0),
         completedAmount: transactions
           .filter(t => t.status === 'completed')
