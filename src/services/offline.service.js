@@ -96,12 +96,6 @@ class OfflineService {
     window.dispatchEvent(event);
   }
 
-  /**
-   * Vérifie si l'application est en ligne
-   */
-  get isOnline() {
-    return navigator.onLine;
-  }
 
   /**
    * Sauvegarde des données dans IndexedDB
