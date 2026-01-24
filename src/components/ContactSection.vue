@@ -13,7 +13,10 @@ const maxMessageLength = 500;
 
 const handleSubmit = () => {
   console.log('Form submitted:', formData.value);
-  // Handle form submission
+  // Construct WhatsApp message
+  const message = `Bonjour, je m'appelle ${formData.value.name}. ${formData.value.message}`;
+  const whatsappUrl = `https://wa.me/221781157773?text=${encodeURIComponent(message)}`;
+  window.open(whatsappUrl, '_blank');
 };
 </script>
 
@@ -76,7 +79,7 @@ const handleSubmit = () => {
                 type="email"
                 placeholder="votre@email.com"
                 class="w-full px-5 py-3.5 border-2 border-gray-200 rounded-xl focus:border-teal-500 focus:outline-none transition-colors text-gray-900 placeholder:text-gray-400"
-                required
+                
               />
             </div>
 
@@ -139,8 +142,8 @@ const handleSubmit = () => {
                 </div>
                 <div>
                   <h4 class="text-lg font-bold text-gray-900 mb-2">Téléphone</h4>
-                  <p class="text-gray-600">+221 33 XXX XX XX</p>
-                  <p class="text-gray-600">+221 77 XXX XX XX</p>
+                  <p class="text-gray-600">+221 781 157 773</p>
+                 
                 </div>
               </div>
 
@@ -151,8 +154,8 @@ const handleSubmit = () => {
                 </div>
                 <div>
                   <h4 class="text-lg font-bold text-gray-900 mb-2">Email</h4>
+                  <p class="text-gray-600">sembenpape4@gmail.com</p>
                   <p class="text-gray-600">contact@paytranche.sn</p>
-                  <p class="text-gray-600">support@paytranche.sn</p>
                 </div>
               </div>
 
@@ -163,8 +166,8 @@ const handleSubmit = () => {
                 </div>
                 <div>
                   <h4 class="text-lg font-bold text-gray-900 mb-2">Adresse</h4>
-                  <p class="text-gray-600">Dakar, Sénégal</p>
-                  <p class="text-gray-600">Plateau, Avenue Léopold Sédar Senghor</p>
+                  <p class="text-gray-600">Dakar Rufisque, Sénégal</p>
+                
                 </div>
               </div>
 

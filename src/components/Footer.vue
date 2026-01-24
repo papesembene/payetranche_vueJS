@@ -180,10 +180,14 @@ const scrollToSection = (sectionId) => {
             <a href="#" class="hover:text-white transition-colors">
               Politique de confidentialité
             </a>
-            <a href="#" class="hover:text-white transition-colors">
-              Powered by Readdy
-            </a>
+            <span class="text-white/60">
+              Développé par Sem's - Coding to Success
+            </span>
           </div>
+        </div>
+        <!-- Developer Contact Info -->
+        <div class="mt-4 text-center text-xs text-white/60">
+          <p>Contact: +221 781 157 773 | Dakar Rufisque | sembenpape4@gmail.com</p>
         </div>
       </div>
     </div>

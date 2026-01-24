@@ -1,5 +1,12 @@
 <script setup>
+import { useRouter } from 'vue-router';
 import DashboardPreviewCard from './DashboardPreviewCard.vue';
+
+const router = useRouter();
+
+const goToLogin = () => {
+  router.push({ name: 'Login' });
+};
 </script>
 
 <template>
@@ -39,7 +46,7 @@ import DashboardPreviewCard from './DashboardPreviewCard.vue';
 
           <!-- CTA Buttons -->
           <div class="flex flex-col sm:flex-row gap-4 pt-4">
-            <button class="px-8 py-4 bg-teal-500 hover:bg-teal-600 text-white font-semibold rounded-xl transition-all shadow-xl hover:shadow-2xl hover:scale-105">
+            <button @click="goToLogin" class="px-8 py-4 bg-teal-500 hover:bg-teal-600 text-white font-semibold rounded-xl transition-all shadow-xl hover:shadow-2xl hover:scale-105">
               Commencer gratuitement
             </button>
             <button class="px-8 py-4 bg-white/10 hover:bg-white/20 backdrop-blur-md text-white font-semibold rounded-xl transition-all border border-white/30 hover:border-white/50">
