@@ -23,6 +23,14 @@ watch(() => props.refresh, () => {
   loadData();
 });
 
+watch(() => searchQuery.value, () => {
+  currentPage.value = 1;
+});
+
+watch(() => selectedStatus.value, () => {
+  currentPage.value = 1;
+});
+
 const searchQuery = ref('');
 const selectedStatus = ref('Tous les statuts');
 const clients = ref([]);
@@ -32,6 +40,8 @@ const showForm = ref(false);
 const showExportMenu = ref(false);
 const showPaymentForm = ref(false);
 const selectedClientForPayment = ref(null);
+const currentPage = ref(1);
+const itemsPerPage = ref(12); // 3x4 grid
 
 const canAddClient = computed(() => userStore.canAddClient);
 

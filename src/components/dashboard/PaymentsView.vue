@@ -18,10 +18,20 @@ const transactions = ref([]);
 const clients = ref([]);
 const loading = ref(false);
 const showExportMenu = ref(false);
+const currentPage = ref(1);
+const itemsPerPage = ref(10);
 
 // Watch for refresh prop changes
 watch(() => props.refresh, () => {
   loadData();
+});
+
+watch(() => searchQuery.value, () => {
+  currentPage.value = 1;
+});
+
+watch(() => selectedStatus.value, () => {
+  currentPage.value = 1;
 });
 
 const loadData = async () => {
@@ -109,7 +119,12 @@ const formatAmount = (amount) => {
 };
 
 const formatDate = (dateString) => {
-  return new Date(dateString).toLocaleDateString('fr-FR', {
+  if (!dateString) return 'Date inconnue';
+
+  const date = new Date(dateString);
+  if (isNaN(date.getTime())) return 'Date invalide';
+
+  return date.toLocaleDateString('fr-FR', {
     day: '2-digit',
     month: 'short',
     year: 'numeric'
@@ -273,7 +288,7 @@ onMounted(() => {
       <div v-if="filteredPayments.length > 0" class="md:hidden">
         <div class="divide-y divide-gray-200">
           <div
-            v-for="payment in filteredPayments"
+            v-for="payment in paginatedPayments"
             :key="payment.id"
             class="p-4 hover:bg-gray-50 transition-colors"
           >

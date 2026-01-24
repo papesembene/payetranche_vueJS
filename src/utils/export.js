@@ -1,3 +1,15 @@
+// Utility function for safe date formatting
+const safeFormatDate = (dateString) => {
+  if (!dateString) return 'Date inconnue';
+  const date = new Date(dateString);
+  if (isNaN(date.getTime())) return 'Date invalide';
+  return date.toLocaleDateString('fr-FR', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric'
+  });
+};
+
 // Export clients to CSV
 export const exportClientsToExcel = (clients, filename = 'clients') => {
   if (clients.length === 0) {
