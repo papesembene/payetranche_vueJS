@@ -112,16 +112,20 @@ const validateForm = () => {
     }
   }
 
-  if (!paymentData.value.dueDate) {
-    errors.value.dueDate = 'La date d\'échéance est requise';
+  // Due date is required only for installment payments
+  if (paymentData.value.isInstallment && !paymentData.value.dueDate) {
+    errors.value.dueDate = 'La date d\'échéance est requise pour les paiements échelonnés';
   }
 
-  const dueDate = new Date(paymentData.value.dueDate);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  // Validate due date if provided
+  if (paymentData.value.dueDate) {
+    const dueDate = new Date(paymentData.value.dueDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
-  if (dueDate < today) {
-    errors.value.dueDate = 'La date d\'échéance ne peut pas être dans le passé';
+    if (dueDate < today) {
+      errors.value.dueDate = 'La date d\'échéance ne peut pas être dans le passé';
+    }
   }
 
   return Object.keys(errors.value).length === 0;
@@ -295,7 +299,7 @@ const today = new Date().toISOString().split('T')[0];
         <!-- Due Date -->
         <div>
           <label for="dueDate" class="block text-sm font-semibold text-gray-700 mb-2">
-            Date d'échéance
+            Date d'échéance{{ paymentData.isInstallment ? '' : ' (optionnel)' }}
           </label>
           <div class="relative">
             <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
