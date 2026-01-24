@@ -111,6 +111,20 @@ class PayDunyaService {
         }
       });
 
+      // Vérifier le code de réponse PayDunya
+      if (response.data.response_code !== '00') {
+        throw new Error(response.data.response_text || 'Erreur PayDunya lors de la création de la facture');
+      }
+
+      // Validation de la réponse PayDunya
+      if (!response.data?.response_text?.checkout_url) {
+        throw new Error('URL de paiement non reçue de PayDunya');
+      }
+
+      if (!response.data?.response_text?.invoice_token) {
+        throw new Error('Token de facture non reçu de PayDunya');
+      }
+
       return {
         success: true,
         invoice_token: response.data.response_text.invoice_token,

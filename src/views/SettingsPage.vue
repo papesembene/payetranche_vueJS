@@ -380,7 +380,10 @@ const getEffectiveEndDate = () => {
 };
 
 const renewSubscription = async () => {
-  if (!currentPlan.value) return;
+  if (!currentPlan.value || !currentPlan.value.id) {
+    alert('Erreur: Plan d\'abonnement non défini');
+    return;
+  }
 
   loading.value = true;
   try {
