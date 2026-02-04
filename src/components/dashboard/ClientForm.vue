@@ -26,7 +26,8 @@ const form = ref({
   name: '',
   address: '',
   phone: '',
-  totalDebt: null // Initialement null pour forcer l'utilisateur à entrer une valeur
+  totalDebt: null, // Initialement null pour forcer l'utilisateur à entrer une valeur
+  acompte: 0 // acompte optionnel - montant déjà versé
 });
 const loading = ref(false);
 const currentStep = ref(1);
@@ -38,7 +39,8 @@ const resetForm = () => {
     name: '',
     address: '',
     phone: '',
-    totalDebt: null // Initialement null pour forcer l'utilisateur à entrer une valeur
+    totalDebt: null, // Initialement null pour forcer l'utilisateur à entrer une valeur
+    acompte: 0 // acompte optionnel
   };
 };
 
@@ -49,7 +51,8 @@ watch(() => props.client, (newClient) => {
       name: newClient.name || '',
       address: newClient.address || '',
       phone: newClient.phone || '',
-      totalDebt: newClient.totalDebt || 0
+      totalDebt: newClient.totalDebt || 0,
+      acompte: newClient.acompte || 0
     };
   } else {
     resetForm();
@@ -69,7 +72,7 @@ watch(() => props.show, (show) => {
 watch(() => currentStep.value, (newStep) => {
   if (newStep === 1) speak('Étape 1: Entrez le nom du client');
   else if (newStep === 2) speak('Étape 2: Entrez le numéro de téléphone');
-  else if (newStep === 3) speak('Étape 3: Entrez l\'adresse et le montant de la dette');
+  else if (newStep === 3) speak('Étape 3: Entrez l\'adresse, le montant de la dette et l\'acompte');
 });
 
 
@@ -99,6 +102,11 @@ const handleStepAction = async () => {
       }
       if (!form.value.totalDebt || form.value.totalDebt <= 0) {
         alert('Le montant de la dette doit être supérieur à 0 FCFA. Un client sans dette n\'a pas de sens.');
+        return;
+      }
+      // Valider que l'acompte ne dépasse pas le total
+      if (form.value.acompte > form.value.totalDebt) {
+        alert('L\'acompte ne peut pas être supérieur au montant total de la dette.');
         return;
       }
     }
@@ -261,13 +269,13 @@ const closeModal = () => {
           />
         </div>
 
-        <!-- Step 3: Address and Debt -->
+        <!-- Step 3: Address, Debt and Deposit -->
         <div v-if="currentStep === 3" class="space-y-6">
           <div class="text-center mb-6">
             <div class="mb-4">
               <Home :size="64" class="text-teal-500" />
             </div>
-            <h3 class="text-lg font-semibold text-gray-900 mb-4">Adresse et dette</h3>
+            <h3 class="text-lg font-semibold text-gray-900 mb-4">Adresse, dette et acompte</h3>
           </div>
 
           <div class="grid grid-cols-1 gap-6">
@@ -297,6 +305,21 @@ const closeModal = () => {
                 required
               />
               <p class="text-xs text-gray-500 mt-1">La dette doit être supérieure à 0 FCFA</p>
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">
+                💵 Acompte déjà versé (FCFA)
+              </label>
+              <input
+                v-model.number="form.acompte"
+                type="number"
+                min="0"
+                step="any"
+                class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                placeholder="Optionnel - montant déjà versé"
+              />
+              <p class="text-xs text-gray-500 mt-1">Montant déjà payé (acompte) - optionnel</p>
             </div>
           </div>
         </div>

@@ -70,9 +70,13 @@ const loadData = async () => {
 const clientsWithStats = computed(() => {
   return clients.value.map(client => {
     const clientTransactions = transactions.value.filter(t => t.clientId === client.id);
-    const totalPaid = clientTransactions
+    const totalPaidFromTransactions = clientTransactions
       .filter(t => t.status === 'completed')
       .reduce((sum, t) => sum + (t.amount || 0), 0);
+
+    // Inclure l'acompte dans le montant déjà payé
+    const acompte = client.acompte || 0;
+    const totalPaid = totalPaidFromTransactions + acompte;
 
     const totalDebt = client.totalDebt || 0;
     const remaining = totalDebt - totalPaid;
@@ -101,7 +105,8 @@ const clientsWithStats = computed(() => {
       progress,
       status,
       statusColor,
-      historyCount: clientTransactions.length
+      historyCount: clientTransactions.length,
+      acompte: formatAmount(acompte)
     };
   });
 });

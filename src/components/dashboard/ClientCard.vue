@@ -147,6 +147,10 @@ const getStatusText = (status) => {
         <span class="text-gray-600">Total</span>
         <span class="font-semibold text-gray-900">{{ client.total }}</span>
       </div>
+      <div v-if="client.acompte && parseInt(client.acompte.replace(/\s|FCFA/g, '')) > 0" class="flex justify-between text-sm">
+        <span class="text-gray-600">Acompte</span>
+        <span class="font-semibold text-blue-600">{{ client.acompte }}</span>
+      </div>
       <div class="flex justify-between text-sm">
         <span class="text-gray-600">Payé</span>
         <span class="font-semibold text-green-600">{{ client.paid }}</span>

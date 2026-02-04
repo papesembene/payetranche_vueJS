@@ -94,6 +94,7 @@ class ClientService {
         userId,
         status: 'active',
         totalDebt: clientData.totalDebt,
+        acompte: clientData.acompte || 0,
         lastPayment: null
       };
 

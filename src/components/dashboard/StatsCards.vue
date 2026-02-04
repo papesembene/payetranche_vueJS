@@ -44,9 +44,15 @@ const loadStats = async () => {
       .filter(t => t.status === 'pending')
       .reduce((sum, t) => sum + (t.amount || 0), 0);
 
-    const totalReceived = transactions
+    const totalFromTransactions = transactions
       .filter(t => t.status === 'completed')
       .reduce((sum, t) => sum + (t.amount || 0), 0);
+
+    // Inclure l'acompte dans le total reçu
+    const totalAcompte = clients
+      .reduce((sum, c) => sum + (c.acompte || 0), 0);
+
+    const totalReceived = totalFromTransactions + totalAcompte;
 
     const overdueAmount = transactions
       .filter(t => t.status === 'pending' && new Date(t.dueDate) < new Date())
