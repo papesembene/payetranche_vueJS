@@ -1,41 +1,58 @@
 <script setup>
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { Phone } from 'lucide-vue-next';
-import { DollarSign } from 'lucide-vue-next';
+import { Phone, Lock, DollarSign } from 'lucide-vue-next';
 import { useUser } from '../composables/useUser.js';
 
 const router = useRouter();
 const { login, loading } = useUser();
 
 const phone = ref('');
-const rememberMe = ref(false);
+const pin = ref('');
 const errors = ref({});
 
 const validateSenegalesePhone = (phoneNumber) => {
   if (!phoneNumber || phoneNumber.trim() === '') {
-    return 'Le numéro de téléphone est requis';
+    return 'Le numero de telephone est requis';
   }
   // Remove spaces and +221 prefix if present
   const cleaned = phoneNumber.replace(/\s+/g, '').replace(/^\+221/, '');
   // Check if starts with valid prefixes and has 9 digits total
   const validPrefixes = ['70', '71', '75', '76', '77', '78'];
   if (cleaned.length !== 9 || !validPrefixes.some(prefix => cleaned.startsWith(prefix))) {
-    return 'Numéro invalide. Utilisez un numéro sénégalais (70,71,75,76,77,78)';
+    return 'Numero invalide. Utilisez un numero senegalais (70,71,75,76,77,78)';
+  }
+  return null;
+};
+
+const validatePin = (pinValue) => {
+  if (!pinValue || pinValue.length !== 4) {
+    return 'Le code PIN doit contenir 4 chiffres';
+  }
+  if (!/^\d{4}$/.test(pinValue)) {
+    return 'Le code PIN doit contenir uniquement des chiffres';
   }
   return null;
 };
 
 const handleLogin = async () => {
   errors.value = {};
+  
   const phoneError = validateSenegalesePhone(phone.value);
   if (phoneError) {
     errors.value.phone = phoneError;
     return;
   }
 
+  const pinError = validatePin(pin.value);
+  if (pinError) {
+    errors.value.pin = pinError;
+    return;
+  }
+
   const result = await login({
-    phone: phone.value
+    phone: phone.value,
+    pin: pin.value
   });
 
   if (result.success) {
@@ -64,7 +81,7 @@ const handleLogin = async () => {
       <div class="bg-white rounded-2xl shadow-xl p-8">
         <!-- Welcome Text -->
         <h1 class="text-3xl font-bold text-gray-900 mb-2">Bienvenue !</h1>
-        <p class="text-gray-600 mb-8">Connectez-vous avec votre numéro de téléphone</p>
+        <p class="text-gray-600 mb-8">Connectez-vous avec votre numero de telephone et votre code PIN</p>
 
         <!-- Error Message -->
         <div v-if="errors.general" class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md mb-6">
@@ -75,7 +92,7 @@ const handleLogin = async () => {
           <!-- Phone Field -->
           <div>
             <label for="phone" class="block text-sm font-semibold text-gray-700 mb-2">
-              Numéro de téléphone
+              Numero de telephone
             </label>
             <div class="relative">
               <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
@@ -93,16 +110,26 @@ const handleLogin = async () => {
             <p v-if="errors.phone" class="text-xs text-red-600 mt-1">{{ errors.phone }}</p>
           </div>
 
-          <!-- Remember Me -->
-          <div class="flex items-center justify-between">
-            <label class="flex items-center gap-2 cursor-pointer">
-              <input
-                v-model="rememberMe"
-                type="checkbox"
-                class="w-4 h-4 text-teal-500 border-gray-300 rounded focus:ring-teal-500 cursor-pointer"
-              />
-              <span class="text-sm text-gray-600">Se souvenir de moi</span>
+          <!-- PIN Field -->
+          <div>
+            <label for="pin" class="block text-sm font-semibold text-gray-700 mb-2">
+              Code PIN
             </label>
+            <div class="relative">
+              <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                <Lock :size="20" class="text-gray-400" />
+              </div>
+              <input
+                id="pin"
+                v-model="pin"
+                type="password"
+                maxlength="4"
+                placeholder="____"
+                :class="['w-full pl-12 pr-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all', errors.pin ? 'border-red-500' : 'border-gray-300']"
+              />
+            </div>
+            <p class="text-xs text-gray-500 mt-1">Entrez votre code PIN a 4 chiffres</p>
+            <p v-if="errors.pin" class="text-xs text-red-600 mt-1">{{ errors.pin }}</p>
           </div>
 
           <!-- Login Button -->
@@ -119,7 +146,7 @@ const handleLogin = async () => {
         <p class="text-center text-sm text-gray-600 mt-6">
           Vous n'avez pas de compte ?
           <router-link to="/register" class="text-teal-500 hover:text-teal-600 font-medium transition-colors">
-            Créer un compte
+            Creer un compte
           </router-link>
         </p>
       </div>

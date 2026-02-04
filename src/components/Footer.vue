@@ -172,7 +172,7 @@ const scrollToSection = (sectionId) => {
       <!-- Divider -->
       <div class="border-t border-white/20 pt-8">
         <div class="flex flex-col md:flex-row justify-between items-center gap-4 text-sm text-white/80">
-          <p>© 2024 PayTranche Sénégal. Tous droits réservés.</p>
+          <p>© 2025 PayTranche Sénégal. Tous droits réservés.</p>
           <div class="flex gap-6">
             <a href="#" class="hover:text-white transition-colors">
               Conditions d'utilisation

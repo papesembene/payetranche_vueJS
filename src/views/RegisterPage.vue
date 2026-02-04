@@ -13,103 +13,179 @@
       </div>
 
       <!-- Register Form Card -->
-      <div class="bg-white rounded-2xl shadow-xl p-8">
-        <!-- Welcome Text -->
-        <h1 class="text-3xl font-bold text-gray-900 mb-2">Créer un compte</h1>
-        <p class="text-gray-600 mb-8">Commencez votre essai gratuit de 14 jours</p>
+      <div class="bg-white rounded-2xl shadow-xl">
+        <!-- Header -->
+        <div class="p-8 pb-4">
+          <!-- Welcome Text -->
+          <h1 class="text-3xl font-bold text-gray-900 mb-2">Créer un compte</h1>
+          <p class="text-gray-600 mb-6">Commencez votre essai gratuit de 14 jours</p>
 
-        <!-- General Error Message -->
-        <div v-if="errors.general" class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md mb-6">
+          <!-- Step Indicator -->
+          <div class="flex items-center justify-center gap-2 mb-2">
+            <div v-for="step in totalSteps" :key="step" class="flex items-center">
+              <div
+                :class="[
+                  'w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold transition-all',
+                  step <= currentStep ? 'bg-teal-500 text-white' : 'bg-gray-200 text-gray-600'
+                ]"
+              >
+                <CheckCircle v-if="step < currentStep" :size="16" />
+                <span v-else>{{ step }}</span>
+              </div>
+              <div v-if="step < totalSteps" :class="['w-12 h-1 mx-1', step < currentStep ? 'bg-teal-500' : 'bg-gray-200']"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Error Message -->
+        <div v-if="errors.general" class="mx-8 mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md">
           {{ errors.general }}
         </div>
 
-        <form @submit.prevent="handleRegister" class="space-y-6">
-          <!-- Name Field -->
-          <div>
-            <label for="name" class="block text-sm font-semibold text-gray-700 mb-2">
-              Nom complet
-            </label>
-            <div class="relative">
-              <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                <User :size="20" class="text-gray-400" />
-              </div>
+        <!-- Form -->
+        <form @submit.prevent="handleStepAction" class="p-8 space-y-6">
+          <!-- Step 1: Name & Phone -->
+          <div v-if="currentStep === 1" class="space-y-4">
+            <div class="text-center mb-6">
+              <User :size="64" class="text-teal-500 mx-auto mb-4" />
+              <h3 class="text-lg font-semibold text-gray-900">Vos informations</h3>
+            </div>
+
+            <div>
+              <label for="name" class="block text-sm font-medium text-gray-700 mb-2">Nom complet</label>
               <input
                 id="name"
                 v-model="form.name"
                 type="text"
-                placeholder="Votre nom complet"
-                :class="['w-full pl-12 pr-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all', errors.name ? 'border-red-500' : 'border-gray-300']"
+                class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                placeholder="Votre nom"
+                :class="errors.name ? 'border-red-500' : ''"
               />
+              <p v-if="errors.name" class="text-xs text-red-600 mt-1">{{ errors.name }}</p>
             </div>
-            <p v-if="errors.name" class="text-xs text-red-600 mt-1">{{ errors.name }}</p>
-          </div>
 
-          <!-- Phone Field -->
-          <div>
-            <label for="phone" class="block text-sm font-semibold text-gray-700 mb-2">
-              Numéro de téléphone
-            </label>
-            <div class="relative">
-              <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                <Phone :size="20" class="text-gray-400" />
-              </div>
+            <div>
+              <label for="phone" class="block text-sm font-medium text-gray-700 mb-2">Téléphone</label>
               <input
                 id="phone"
                 v-model="form.phone"
                 type="tel"
+                class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                 placeholder="77 123 45 67"
-                :class="['w-full pl-12 pr-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all', errors.phone ? 'border-red-500' : 'border-gray-300']"
+                :class="errors.phone ? 'border-red-500' : ''"
               />
+              <p class="text-xs text-gray-500 mt-1">77, 78, 70, 71, 75, 76</p>
+              <p v-if="errors.phone" class="text-xs text-red-600 mt-1">{{ errors.phone }}</p>
             </div>
-            <p class="text-xs text-gray-500 mt-1">Exemple: 77 123 45 67 (sans +221)</p>
-            <p v-if="errors.phone" class="text-xs text-red-600 mt-1">{{ errors.phone }}</p>
           </div>
 
-          <!-- Terms Checkbox -->
-          <div class="flex items-start gap-3">
-            <input
-              id="terms"
-              v-model="form.acceptTerms"
-              type="checkbox"
-              :class="['mt-1 w-4 h-4 border-gray-300 rounded focus:ring-teal-500', errors.terms ? 'border-red-500' : 'text-teal-500']"
-            />
-            <label for="terms" class="text-sm text-gray-600">
-              J'accepte les
-              <a href="#" class="text-teal-500 hover:text-teal-600 font-medium">Conditions d'utilisation</a>
-              et la
-              <a href="#" class="text-teal-500 hover:text-teal-600 font-medium">Politique de confidentialité</a>
-            </label>
-          </div>
-          <p v-if="errors.terms" class="text-xs text-red-600 mt-1">{{ errors.terms }}</p>
+          <!-- Step 2: PIN -->
+          <div v-if="currentStep === 2" class="space-y-4">
+            <div class="text-center mb-6">
+              <Lock :size="64" class="text-teal-500 mx-auto mb-4" />
+              <h3 class="text-lg font-semibold text-gray-900">Sécurisez votre compte</h3>
+            </div>
 
-          <!-- Register Button -->
-          <button
-            type="submit"
-            :disabled="loading"
-            class="w-full bg-teal-500 hover:bg-teal-600 text-white font-semibold py-3 rounded-xl transition-colors shadow-md hover:shadow-lg disabled:opacity-50"
-          >
-            {{ loading ? 'Création du compte...' : 'Créer mon compte' }}
-          </button>
+            <div>
+              <label for="pin" class="block text-sm font-medium text-gray-700 mb-2">Code PIN</label>
+              <input
+                id="pin"
+                v-model="form.pin"
+                type="password"
+                maxlength="4"
+                class="w-full px-4 py-3 text-center text-2xl tracking-widest border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                placeholder="____"
+                :class="errors.pin ? 'border-red-500' : ''"
+              />
+              <p class="text-xs text-gray-500 mt-1 text-center">4 chiffres</p>
+              <p v-if="errors.pin" class="text-xs text-red-600 mt-1 text-center">{{ errors.pin }}</p>
+            </div>
+
+            <div>
+              <label for="confirmPin" class="block text-sm font-medium text-gray-700 mb-2">Confirmer PIN</label>
+              <input
+                id="confirmPin"
+                v-model="form.confirmPin"
+                type="password"
+                maxlength="4"
+                class="w-full px-4 py-3 text-center text-2xl tracking-widest border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                placeholder="____"
+                :class="errors.confirmPin ? 'border-red-500' : ''"
+              />
+              <p v-if="errors.confirmPin" class="text-xs text-red-600 mt-1 text-center">{{ errors.confirmPin }}</p>
+            </div>
+          </div>
+
+          <!-- Step 3: Terms & Submit -->
+          <div v-if="currentStep === 3" class="space-y-4">
+            <div class="text-center mb-6">
+              <CheckCircle :size="64" class="text-teal-500 mx-auto mb-4" />
+              <h3 class="text-lg font-semibold text-gray-900">Conditions d'utilisation</h3>
+            </div>
+
+            <div class="flex items-start gap-3 p-4 bg-gray-50 rounded-xl">
+              <input
+                id="terms"
+                v-model="form.acceptTerms"
+                type="checkbox"
+                class="mt-1 w-5 h-5 border-gray-300 rounded focus:ring-teal-500"
+              />
+              <label for="terms" class="text-sm text-gray-600">
+                J'accepte les
+                <a href="#" class="text-teal-500 hover:text-teal-600 font-medium">Conditions</a>
+                et la
+                <a href="#" class="text-teal-500 hover:text-teal-600 font-medium">Politique de confidentialité</a>
+              </label>
+            </div>
+            <p v-if="errors.terms" class="text-xs text-red-600">{{ errors.terms }}</p>
+
+            <div class="p-4 bg-teal-50 border border-teal-200 rounded-xl">
+              <div class="flex items-center gap-2 text-teal-800 mb-1">
+                <Gift :size="20" />
+                <span class="font-medium">Essai gratuit 14 jours</span>
+              </div>
+              <p class="text-sm text-teal-700">
+                Accès complet sans carte bancaire
+              </p>
+            </div>
+          </div>
+
+          <!-- Actions -->
+          <div class="flex gap-3 pt-4">
+            <button
+              v-if="currentStep > 1"
+              type="button"
+              @click="prevStep"
+              class="px-6 py-3 border border-gray-300 text-gray-700 font-medium rounded-xl hover:bg-gray-50 transition-colors"
+            >
+              Précédent
+            </button>
+            <button
+              type="button"
+              @click="goToLogin"
+              class="px-6 py-3 border border-gray-300 text-gray-700 font-medium rounded-xl hover:bg-gray-50 transition-colors"
+            >
+              Annuler
+            </button>
+            <button
+              type="submit"
+              :disabled="loading"
+              class="flex-1 px-6 py-3 bg-teal-500 hover:bg-teal-600 disabled:bg-teal-300 text-white font-semibold rounded-xl transition-colors"
+            >
+              {{ loading ? 'Création...' : (currentStep === totalSteps ? 'Créer mon compte' : 'Suivant') }}
+            </button>
+          </div>
         </form>
 
-        <!-- Trial Info -->
-        <div class="mt-6 p-4 bg-teal-50 border border-teal-200 rounded-lg">
-          <div class="flex items-center gap-2 text-teal-800">
-            <Gift :size="20" />
-            <span class="font-medium">Essai gratuit de 14 jours</span>
-          </div>
-          <p class="text-sm text-teal-700 mt-1">
-            Accès complet à toutes les fonctionnalités sans carte bancaire
+        <!-- Login Link -->
+        <div class="p-8 pt-0">
+          <p class="text-center text-sm text-gray-600">
+            Déjà un compte ?
+            <router-link to="/login" class="text-teal-500 hover:text-teal-600 font-medium">
+              Se connecter
+            </router-link>
           </p>
         </div>
-
-        <!-- Login Link -->
-        <p class="text-center text-sm text-gray-600 mt-6">
-          Déjà un compte ?
-          <router-link to="/login" class="text-teal-500 hover:text-teal-600 font-medium transition-colors">
-            Se connecter
-          </router-link>
-        </p>
       </div>
     </div>
   </div>
@@ -118,7 +194,7 @@
 <script setup>
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { DollarSign, User, Phone, Gift } from 'lucide-vue-next';
+import { DollarSign, User, Lock, CheckCircle, Gift } from 'lucide-vue-next';
 import { useUser } from '../composables/useUser.js';
 
 const router = useRouter();
@@ -127,74 +203,95 @@ const { register } = useUser();
 const form = ref({
   name: '',
   phone: '',
+  pin: '',
+  confirmPin: '',
   acceptTerms: false
 });
 
 const loading = ref(false);
 const errors = ref({});
+const currentStep = ref(1);
+const totalSteps = 3;
 
 const validateName = (name) => {
-  if (!name || name.trim() === '') {
-    return 'Le nom complet est requis';
-  }
-  if (name.trim().length < 2) {
-    return 'Le nom doit contenir au moins 2 caractères';
-  }
+  if (!name || name.trim() === '') return 'Le nom est requis';
+  if (name.trim().length < 2) return 'Au moins 2 caractères';
   return null;
 };
 
-const validateSenegalesePhone = (phoneNumber) => {
-  if (!phoneNumber || phoneNumber.trim() === '') {
-    return 'Le numéro de téléphone est requis';
-  }
-  // Remove spaces and +221 prefix if present
-  const cleaned = phoneNumber.replace(/\s+/g, '').replace(/^\+221/, '');
-  // Check if starts with valid prefixes and has 9 digits total
+const validatePhone = (phone) => {
+  if (!phone || phone.trim() === '') return 'Le téléphone est requis';
+  const cleaned = phone.replace(/\s+/g, '').replace(/^\+221/, '');
   const validPrefixes = ['70', '71', '75', '76', '77', '78'];
   if (cleaned.length !== 9 || !validPrefixes.some(prefix => cleaned.startsWith(prefix))) {
-    return 'Numéro invalide. Utilisez un numéro sénégalais (70,71,75,76,77,78)';
+    return 'Numéro sénégalais requis (70,71,75,76,77,78)';
   }
   return null;
 };
 
-const handleRegister = async () => {
-  errors.value = {};
+const validatePin = (pin) => {
+  if (!pin || pin.length !== 4) return '4 chiffres requis';
+  if (!/^\d{4}$/.test(pin)) return 'Que des chiffres';
+  return null;
+};
 
-  const nameError = validateName(form.value.name);
-  if (nameError) {
-    errors.value.name = nameError;
-  }
-
-  const phoneError = validateSenegalesePhone(form.value.phone);
-  if (phoneError) {
-    errors.value.phone = phoneError;
-  }
-
-  if (!form.value.acceptTerms) {
-    errors.value.terms = 'Vous devez accepter les conditions d\'utilisation';
-  }
-
-  if (Object.keys(errors.value).length > 0) {
-    return;
-  }
-
-  loading.value = true;
-  try {
-    const result = await register({
-      name: form.value.name,
-      phone: form.value.phone
-    });
-
-    if (result.success) {
-      alert('Compte créé avec succès ! Vous pouvez maintenant vous connecter.');
-      router.push('/login');
-    } else {
-      errors.value.general = 'Erreur lors de la création du compte: ' + result.error;
+const handleStepAction = async () => {
+  if (currentStep.value < totalSteps) {
+    // Validation
+    if (currentStep.value === 1) {
+      const nameError = validateName(form.value.name);
+      const phoneError = validatePhone(form.value.phone);
+      if (nameError) errors.value.name = nameError;
+      if (phoneError) errors.value.phone = phoneError;
+      if (nameError || phoneError) return;
     }
-  } catch (error) {
-    errors.value.general = 'Erreur lors de la création du compte: ' + error.message;
-  } finally {
-    loading.value = false;
+    if (currentStep.value === 2) {
+      const pinError = validatePin(form.value.pin);
+      if (pinError) {
+        errors.value.pin = pinError;
+        return;
+      }
+      if (form.value.pin !== form.value.confirmPin) {
+        errors.value.confirmPin = 'Les PIN ne correspondent pas';
+        return;
+      }
+    }
+    if (currentStep.value === 3) {
+      if (!form.value.acceptTerms) {
+        errors.value.terms = 'Accepter les conditions requis';
+        return;
+      }
+    }
+    currentStep.value++;
+  } else {
+    // Submit
+    errors.value = {};
+    loading.value = true;
+    try {
+      const result = await register({
+        name: form.value.name,
+        phone: form.value.phone,
+        pin: form.value.pin
+      });
+      if (result.success) {
+        alert('Compte créé ! Connectez-vous.');
+        router.push('/login');
+      } else {
+        errors.value.general = 'Erreur: ' + result.error;
+      }
+    } catch (error) {
+      errors.value.general = 'Erreur: ' + error.message;
+    } finally {
+      loading.value = false;
+    }
   }
+};
+
+const prevStep = () => {
+  if (currentStep.value > 1) currentStep.value--;
+};
+
+const goToLogin = () => {
+  router.push('/login');
 };
 </script>
