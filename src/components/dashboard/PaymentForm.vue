@@ -164,12 +164,16 @@ const createSinglePayment = async () => {
     ? totalInstallmentAmount.value
     : parseFloat(paymentData.value.amount);
 
+  // Pour les paiements simples (sans tranches), marquer comme payé
+  // Pour les tranches ou paiements avec date d'échéance, marquer comme en attente
+  const status = paymentData.value.isInstallment ? 'pending' : 'completed';
+
   await transactionService.createTransaction({
     clientId: props.client.id,
     amount: amount,
     description: paymentData.value.description || 'Paiement',
-    dueDate: paymentData.value.dueDate,
-    status: 'pending',
+    dueDate: paymentData.value.dueDate || null,
+    status: status,
     type: 'payment'
   });
 };

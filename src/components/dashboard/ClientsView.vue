@@ -18,6 +18,19 @@ const props = defineProps({
 
 const userStore = useUserStore();
 
+// Déclarer les ref AVANT les watch
+const searchQuery = ref('');
+const selectedStatus = ref('Tous les statuts');
+const clients = ref([]);
+const transactions = ref([]);
+const loading = ref(false);
+const showForm = ref(false);
+const showExportMenu = ref(false);
+const showPaymentForm = ref(false);
+const selectedClientForPayment = ref(null);
+const currentPage = ref(1);
+const itemsPerPage = ref(12); // 3x4 grid
+
 // Watch for refresh prop changes
 watch(() => props.refresh, () => {
   loadData();
@@ -30,18 +43,6 @@ watch(() => searchQuery.value, () => {
 watch(() => selectedStatus.value, () => {
   currentPage.value = 1;
 });
-
-const searchQuery = ref('');
-const selectedStatus = ref('Tous les statuts');
-const clients = ref([]);
-const transactions = ref([]);
-const loading = ref(false);
-const showForm = ref(false);
-const showExportMenu = ref(false);
-const showPaymentForm = ref(false);
-const selectedClientForPayment = ref(null);
-const currentPage = ref(1);
-const itemsPerPage = ref(12); // 3x4 grid
 
 const canAddClient = computed(() => userStore.canAddClient);
 
@@ -146,7 +147,17 @@ const onPaymentAdded = () => {
 };
 
 const onAddPayment = (client) => {
-  selectedClientForPayment.value = client;
+  // Transformer les données du client pour correspondre au format attendu par PaymentForm
+  const transformedClient = {
+    id: client.id,
+    name: client.name,
+    phone: client.phone,
+    address: client.address,
+    // Normaliser les noms de propriétés : totalDebt -> total, paid
+    total: client.total || client.totalDebt || 0,
+    paid: client.paid || 0
+  };
+  selectedClientForPayment.value = transformedClient;
   showPaymentForm.value = true;
 };
 

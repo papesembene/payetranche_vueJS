@@ -314,6 +314,7 @@ import { ArrowLeft, Smartphone, CreditCard, Clock, AlertTriangle } from 'lucide-
 import DashboardHeader from '../components/dashboard/DashboardHeader.vue';
 import { useUser } from '../composables/useUser.js';
 import { payDunyaService } from '../services/payDunya.service.js';
+import { safeFormatDate } from '../utils/export.js';
 
 const {
   user,
@@ -364,7 +365,7 @@ const getStatusLabel = (status) => {
 };
 
 const formatDate = (dateString) => {
-  return new Date(dateString).toLocaleDateString('fr-FR');
+  return safeFormatDate(dateString);
 };
 
 const getEffectiveEndDate = () => {

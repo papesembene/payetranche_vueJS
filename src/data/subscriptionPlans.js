@@ -6,7 +6,7 @@ export const subscriptionPlans = {
     price: 0,
     currency: 'FCFA',
     billing: 'mensuel',
-    limits: { maxClients: 5, maxPayments: 50, maxPaymentAmount: 100000 },
+    limits: { maxClients: 10, maxPayments: 50, maxPaymentAmount: 100000 },
     features: ['basic_dashboard', 'client_management', 'payment_tracking'],
     description: 'Essai gratuit de 14 jours'
   },

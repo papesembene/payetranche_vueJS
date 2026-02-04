@@ -3,6 +3,8 @@ import { authService } from '../services/auth.service.js';
 import { userService } from '../services/user.service.js';
 import { subscriptionService } from '../services/subscription.service.js';
 import { SessionService } from '../services/session.service.js';
+import { transactionService } from '../services/transaction.service.js';
+import { clientService } from '../services/client.service.js';
 import { useUserStore } from '../stores/user.js';
 import { subscriptionPlans as defaultPlans } from '../data/subscriptionPlans.js';
 
@@ -10,6 +12,8 @@ const user = ref(null);
 const subscriptionPlans = ref(defaultPlans);
 const isAuthenticated = ref(false);
 const loading = ref(false);
+const transactions = ref([]);
+const clients = ref([]);
 
 // Getters
 const currentPlan = computed(() => {
@@ -42,7 +46,7 @@ const effectiveEndDate = computed(() => {
 
 const daysUntilExpiry = computed(() => {
   const endDate = effectiveEndDate.value;
-  if (!endDate) return 30;
+  if (!endDate) return 14;
   
   const today = new Date();
   const diffTime = new Date(endDate) - today;
@@ -50,6 +54,23 @@ const daysUntilExpiry = computed(() => {
   
   // S'assurer que le résultat n'est pas négatif (éviter -1, -2, etc.)
   return Math.max(0, days);
+});
+
+// Compteur dynamique des paiements payés
+const dynamicPaymentCount = computed(() => {
+  return transactions.value?.filter(t => t.status === 'completed')?.length || 0;
+});
+
+// Montant total dynamique des paiements payés
+const dynamicTotalAmount = computed(() => {
+  return transactions.value
+    ?.filter(t => t.status === 'completed')
+    ?.reduce((sum, t) => sum + (t.amount || 0), 0) || 0;
+});
+
+// Compteur dynamique des clients
+const dynamicClientCount = computed(() => {
+  return clients.value?.length || 0;
 });
 
 const usageLimits = computed(() => {
@@ -90,10 +111,10 @@ const canAddPayment = computed(() => {
   // Check subscription status first
   if (!isSubscriptionActive.value) return false;
 
-  // Then check plan limits
+  // Then check plan limits using dynamic payment count
   const plan = currentPlan.value;
-  if (!plan?.limits || !user.value?.usage) return true;
-  return user.value.usage.payments < (plan.limits.maxPayments === -1 ? Infinity : plan.limits.maxPayments);
+  if (!plan?.limits) return true;
+  return dynamicPaymentCount.value < (plan.limits.maxPayments === -1 ? Infinity : plan.limits.maxPayments);
 });
 
 const hasFeatureCheck = (feature) => {
@@ -266,6 +287,21 @@ const loadUser = async () => {
     const userData = await userService.getProfile();
     user.value = userData;
     isAuthenticated.value = true;
+    
+    // Charger aussi les transactions et clients pour les compteurs dynamiques
+    try {
+      const [txns, clientsList] = await Promise.all([
+        transactionService.getTransactions(),
+        clientService.getClients()
+      ]);
+      transactions.value = txns || [];
+      clients.value = clientsList || [];
+    } catch (error) {
+      console.warn('⚠️ Erreur chargement données Firestore:', error);
+      transactions.value = [];
+      clients.value = [];
+    }
+    
     persistUserData(); // Sauvegarder après chargement
   } catch (error) {
     console.error('Erreur chargement utilisateur:', error);
@@ -442,17 +478,21 @@ const syncUsageCounts = async () => {
   try {
     if (!user.value?.id) return;
     
-    // Charger les clients et paiements réels
-    const [clients, transactions] = await Promise.all([
+    // Charger les clients et paiements réels depuis Firestore
+    const [clientsList, txns] = await Promise.all([
       clientService.getClients(),
       transactionService.getTransactions()
     ]);
     
+    // Mettre à jour les refs pour les compteurs dynamiques
+    transactions.value = txns || [];
+    clients.value = clientsList || [];
+    
     // Compter les vrais clients
-    const realClientCount = clients?.length || 0;
+    const realClientCount = clients.value?.length || 0;
     
     // Compter SEULEMENT les paiements effectués (statut 'completed')
-    const completedTransactions = transactions?.filter(t => t.status === 'completed') || [];
+    const completedTransactions = transactions.value?.filter(t => t.status === 'completed') || [];
     const realPaymentCount = completedTransactions.length;
     
     // Calculer le montant total des paiements COMPLÉTÉS uniquement
@@ -508,6 +548,7 @@ export function useUser() {
     subscriptionPlans,
     isAuthenticated,
     loading,
+    transactions,
 
     // Getters
     currentPlan,
@@ -516,6 +557,9 @@ export function useUser() {
     isTrialActive,
     effectiveEndDate,
     daysUntilExpiry,
+    dynamicClientCount,
+    dynamicPaymentCount,
+    dynamicTotalAmount,
     usageLimits,
     canAddClient,
     canAddPayment,

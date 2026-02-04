@@ -65,7 +65,7 @@
     <!-- Usage Stats -->
     <div class="mt-4 grid grid-cols-3 gap-4">
       <div class="text-center">
-        <div class="text-lg font-semibold text-gray-900">{{ user.usage?.clients || 0 }}</div>
+        <div class="text-lg font-semibold text-gray-900">{{ dynamicClientCount }}</div>
         <div class="text-xs text-gray-600">
           / {{ currentPlan.limits?.maxClients === -1 ? '∞' : (currentPlan.limits?.maxClients || 0) }} clients
         </div>
@@ -82,7 +82,7 @@
       </div>
 
       <div class="text-center">
-        <div class="text-lg font-semibold text-gray-900">{{ user.usage?.payments || 0 }}</div>
+        <div class="text-lg font-semibold text-gray-900">{{ dynamicPaymentCount }}</div>
         <div class="text-xs text-gray-600">
           / {{ currentPlan.limits?.maxPayments === -1 ? '∞' : (currentPlan.limits?.maxPayments || 0) }} paiements
         </div>
@@ -137,9 +137,11 @@
 <script setup>
 import { computed } from 'vue';
 import { useUserStore } from '../stores/user.js';
+import { useUser } from '../composables/useUser.js';
 import { Crown, AlertTriangle } from 'lucide-vue-next';
 
 const userStore = useUserStore();
+const { dynamicClientCount, dynamicPaymentCount, dynamicTotalAmount } = useUser();
 const user = computed(() => userStore.user);
 const currentPlan = computed(() => userStore.currentPlan);
 const subscriptionStatus = computed(() => userStore.subscriptionStatus);
@@ -163,11 +165,14 @@ const getUsagePercentage = (type) => {
   if (!limits) return 0;
 
   if (type === 'clients') {
-    return limits.maxClients === -1 ? 0 : ((usage?.clients || 0) / limits.maxClients) * 100;
+    // Utiliser le compteur dynamique des clients
+    return limits.maxClients === -1 ? 0 : (dynamicClientCount.value / limits.maxClients) * 100;
   } else if (type === 'payments') {
-    return limits.maxPayments === -1 ? 0 : ((usage?.payments || 0) / limits.maxPayments) * 100;
+    // Utiliser le compteur dynamique des paiements payés
+    return limits.maxPayments === -1 ? 0 : (dynamicPaymentCount.value / limits.maxPayments) * 100;
   } else if (type === 'amount') {
-    return limits.maxPaymentAmount === -1 ? 0 : ((usage?.totalAmount || 0) / limits.maxPaymentAmount) * 100;
+    // Utiliser le montant dynamique des paiements payés
+    return limits.maxPaymentAmount === -1 ? 0 : (dynamicTotalAmount.value / limits.maxPaymentAmount) * 100;
   }
   return 0;
 };

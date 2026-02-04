@@ -171,7 +171,7 @@ class AuthService {
           id: userId,
           phone: phoneNumber,
           name: name || `Utilisateur ${phoneNumber.slice(-4)}`,
-          avatar: phoneNumber.slice(-1).toUpperCase(),
+          avatar: name ? name.charAt(0).toUpperCase() : 'U',
           createdAt: new Date().toISOString(),
           subscription: {
             id: `sub_${Date.now()}`,

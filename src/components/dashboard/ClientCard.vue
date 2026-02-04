@@ -3,6 +3,7 @@ import { ref, computed, onMounted } from 'vue';
 import { Phone, Plus, History, X, Check, Clock, AlertTriangle } from 'lucide-vue-next';
 import { useUserStore } from '../../stores/user.js';
 import { transactionService } from '../../services/transaction.service.js';
+import { safeFormatDate } from '../../utils/export.js';
 import PaymentForm from './PaymentForm.vue';
 
 const userStore = useUserStore();
@@ -62,7 +63,20 @@ const formatAmount = (amount) => {
 };
 
 const formatDate = (dateString) => {
-  return new Date(dateString).toLocaleDateString('fr-FR', {
+  const date = safeFormatDate(dateString);
+  if (date === 'Date invalide' || date === 'Date inconnue') return date;
+  
+  let dateObj;
+  // Gérer les Timestamps Firestore (objets avec toDate())
+  if (dateString && typeof dateString === 'object' && dateString.toDate) {
+    dateObj = dateString.toDate();
+  } else if (typeof dateString === 'number') {
+    dateObj = new Date(dateString);
+  } else {
+    dateObj = new Date(dateString);
+  }
+  
+  return dateObj.toLocaleDateString('fr-FR', {
     day: '2-digit',
     month: 'short',
     year: 'numeric',
@@ -242,7 +256,7 @@ const getStatusText = (status) => {
                   <p class="text-sm text-gray-600">Montant</p>
                   <p class="font-semibold text-gray-900">{{ formatAmount(transaction.amount) }}</p>
                 </div>
-                <div class="text-right">
+                <div v-if="transaction.dueDate" class="text-right">
                   <p class="text-sm text-gray-600">Échéance</p>
                   <p class="font-medium text-gray-700">{{ formatDate(transaction.dueDate) }}</p>
                 </div>

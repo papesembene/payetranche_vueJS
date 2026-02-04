@@ -9,6 +9,7 @@ import UpgradePrompt from '../components/UpgradePrompt.vue';
 import { useUserStore } from '../stores/user.js';
 import { transactionService } from '../services/transaction.service.js';
 import { clientService } from '../services/client.service.js';
+import { safeFormatDate } from '../utils/export.js';
 import { AlertTriangle, X } from 'lucide-vue-next';
 
 const userStore = useUserStore();
@@ -76,11 +77,7 @@ const formatAmount = (amount) => {
 };
 
 const formatDate = (dateString) => {
-  return new Date(dateString).toLocaleDateString('fr-FR', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric'
-  });
+  return safeFormatDate(dateString);
 };
 
 onMounted(() => {

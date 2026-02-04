@@ -31,7 +31,6 @@ const form = ref({
 const loading = ref(false);
 const currentStep = ref(1);
 const totalSteps = 3;
-const showPaymentPrompt = ref(false);
 const savedClient = ref(null);
 
 const resetForm = () => {
@@ -154,7 +153,10 @@ const submitForm = async () => {
         confirmButton: 'bg-teal-500 hover:bg-teal-600 text-white font-semibold py-2 px-4 rounded-xl'
       }
     }).then(() => {
-      showPaymentPrompt.value = true;
+      // Automatiquement ouvrir le formulaire de paiement avec le client créé
+      emit('addPayment', savedClient.value || form.value);
+      emit('saved');
+      emit('close');
     });
 
     // Return the saved client for payment form
@@ -325,31 +327,6 @@ const closeModal = () => {
         </button>
       </div>
     </form>
-    </div>
-  </div>
-
-  <!-- Payment Prompt Modal -->
-  <div v-if="showPaymentPrompt" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-    <div class="bg-white rounded-2xl max-w-md w-full p-6 text-center">
-      <div class="mb-4">
-        <DollarSign :size="64" class="text-teal-500 mx-auto" />
-      </div>
-      <h3 class="text-lg font-semibold text-gray-900 mb-4">Ajouter un paiement ?</h3>
-      <p class="text-gray-600 mb-6">Voulez-vous enregistrer un paiement pour ce client maintenant ?</p>
-      <div class="flex gap-3">
-        <button
-          @click="showPaymentPrompt = false; emit('saved'); emit('close')"
-          class="flex-1 px-4 py-3 border border-gray-300 text-gray-700 font-medium rounded-xl hover:bg-gray-50 transition-colors"
-        >
-          Plus tard
-        </button>
-        <button
-          @click="emit('addPayment', savedClient.value || form); emit('saved'); showPaymentPrompt = false; emit('close')"
-          class="flex-1 px-4 py-3 bg-teal-500 hover:bg-teal-600 text-white font-semibold rounded-xl transition-colors"
-        >
-          Ajouter paiement
-        </button>
-      </div>
     </div>
   </div>
 </template>

@@ -1,7 +1,20 @@
-// Utility function for safe date formatting
-const safeFormatDate = (dateString) => {
+// Utility function for safe date formatting - handles Firestore Timestamps
+export const safeFormatDate = (dateString) => {
   if (!dateString) return 'Date inconnue';
-  const date = new Date(dateString);
+  
+  let date;
+  
+  // Gérer les Timestamps Firestore (objets avec toDate())
+  if (dateString && typeof dateString === 'object' && dateString.toDate) {
+    date = dateString.toDate();
+  } else if (typeof dateString === 'number') {
+    // Timestamp numérique
+    date = new Date(dateString);
+  } else {
+    // String ISO ou autre format
+    date = new Date(dateString);
+  }
+  
   if (isNaN(date.getTime())) return 'Date invalide';
   return date.toLocaleDateString('fr-FR', {
     day: '2-digit',
