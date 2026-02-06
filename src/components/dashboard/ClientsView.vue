@@ -332,7 +332,6 @@ onMounted(() => {
       :show="showForm"
       @close="closeForm"
       @saved="onClientSaved"
-      @addPayment="onAddPayment"
     />
 
     <!-- Payment Form Modal -->

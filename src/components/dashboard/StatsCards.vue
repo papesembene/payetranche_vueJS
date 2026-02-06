@@ -1,6 +1,6 @@
 <script setup>
-import { ref, onMounted, watch } from 'vue';
-import { DollarSign, Check, AlertTriangle, Users, Download, FileText } from 'lucide-vue-next';
+import { ref, onMounted, onUnmounted, watch } from 'vue';
+import { DollarSign, Check, AlertTriangle, Users, Download, FileText, RefreshCw } from 'lucide-vue-next';
 import { clientService } from '../../services/client.service.js';
 import { transactionService } from '../../services/transaction.service.js';
 import { generateReportPDF } from '../../utils/export.js';
@@ -14,22 +14,43 @@ const props = defineProps({
 
 const stats = ref([]);
 const loading = ref(false);
+const isRefreshing = ref(false);
 const prevStats = ref({
   totalReceivable: 0,
   totalReceived: 0,
   overdueAmount: 0,
   activeClients: 0
 });
+let refreshInterval = null;
 
 // Watch for refresh prop changes
 watch(() => props.refresh, () => {
   loadStats();
 });
 
+// Manual refresh function
+export const refreshStats = () => {
+  loadStats();
+};
+
+// Auto-refresh every 10 seconds to keep stats up to date
+const startAutoRefresh = () => {
+  refreshInterval = setInterval(() => {
+    loadStats();
+  }, 10000); // 10 seconds
+};
+
+// Refresh when component becomes visible (user returns to tab/page)
+const handleVisibilityChange = () => {
+  if (!document.hidden) {
+    loadStats();
+  }
+};
+
 const loadStats = async () => {
-  if (loading.value) return; // Prevent multiple simultaneous calls
+  if (loading.value && !isRefreshing.value) return; // Prevent multiple simultaneous calls
   try {
-    loading.value = true;
+    isRefreshing.value = true;
 
     // Charger les données en parallèle
     const [clients, transactions, clientStats, transactionStats] = await Promise.all([
@@ -39,19 +60,16 @@ const loadStats = async () => {
       transactionService.getTransactionStats()
     ]);
 
-    // Calculer les statistiques
-    const totalReceivable = transactions
-      .filter(t => t.status === 'pending')
-      .reduce((sum, t) => sum + (t.amount || 0), 0);
+    // Calculer le total à recevoir : dette totale des clients - acompte versé
+    const totalDebt = clients.reduce((sum, c) => sum + (c.totalDebt || 0), 0);
+    const totalAcompte = clients.reduce((sum, c) => sum + (c.acompte || 0), 0);
+    const totalReceivable = Math.max(0, totalDebt - totalAcompte);
 
     const totalFromTransactions = transactions
       .filter(t => t.status === 'completed')
       .reduce((sum, t) => sum + (t.amount || 0), 0);
 
-    // Inclure l'acompte dans le total reçu
-    const totalAcompte = clients
-      .reduce((sum, c) => sum + (c.acompte || 0), 0);
-
+    // Le total reçu inclut l'acompte et les transactions complétées
     const totalReceived = totalFromTransactions + totalAcompte;
 
     const overdueAmount = transactions
@@ -65,44 +83,51 @@ const loadStats = async () => {
       activeClients: clientStats.active
     };
 
-    stats.value = [
-      {
-        title: 'Total à recevoir',
-        value: formatAmount(totalReceivable),
-        change: calculateChange(totalReceivable, prevStats.value.totalReceivable),
-        isPositive: totalReceivable >= prevStats.value.totalReceivable,
-        icon: DollarSign,
-        bgColor: 'bg-teal-100',
-        iconColor: 'text-teal-600'
-      },
-      {
-        title: 'Paiements reçus',
-        value: formatAmount(totalReceived),
-        change: calculateChange(totalReceived, prevStats.value.totalReceived),
-        isPositive: totalReceived >= prevStats.value.totalReceived,
-        icon: Check,
-        bgColor: 'bg-green-100',
-        iconColor: 'text-green-600'
-      },
-      {
-        title: 'En retard',
-        value: formatAmount(overdueAmount),
-        change: calculateChange(overdueAmount, prevStats.value.overdueAmount),
-        isPositive: overdueAmount <= prevStats.value.overdueAmount, // Less overdue is positive
-        icon: AlertTriangle,
-        bgColor: 'bg-red-100',
-        iconColor: 'text-red-600'
-      },
-      {
-        title: 'Clients actifs',
-        value: clientStats.active.toString(),
-        change: calculateChange(clientStats.active, prevStats.value.activeClients),
-        isPositive: clientStats.active >= prevStats.value.activeClients,
-        icon: Users,
-        bgColor: 'bg-yellow-100',
-        iconColor: 'text-yellow-600'
-      }
-    ];
+    // Only update if values have changed to avoid unnecessary re-renders
+    const hasChanges = Object.keys(currentStats).some(
+      key => currentStats[key] !== prevStats.value[key]
+    );
+
+    if (hasChanges || stats.value.length === 0) {
+      stats.value = [
+        {
+          title: 'Total à recevoir',
+          value: formatAmount(totalReceivable),
+          change: calculateChange(totalReceivable, prevStats.value.totalReceivable),
+          isPositive: totalReceivable >= prevStats.value.totalReceivable,
+          icon: DollarSign,
+          bgColor: 'bg-teal-100',
+          iconColor: 'text-teal-600'
+        },
+        {
+          title: 'Paiements reçus',
+          value: formatAmount(totalReceived),
+          change: calculateChange(totalReceived, prevStats.value.totalReceived),
+          isPositive: totalReceived >= prevStats.value.totalReceived,
+          icon: Check,
+          bgColor: 'bg-green-100',
+          iconColor: 'text-green-600'
+        },
+        {
+          title: 'En retard',
+          value: formatAmount(overdueAmount),
+          change: calculateChange(overdueAmount, prevStats.value.overdueAmount),
+          isPositive: overdueAmount <= prevStats.value.overdueAmount, // Less overdue is positive
+          icon: AlertTriangle,
+          bgColor: 'bg-red-100',
+          iconColor: 'text-red-600'
+        },
+        {
+          title: 'Clients actifs',
+          value: clientStats.active.toString(),
+          change: calculateChange(clientStats.active, prevStats.value.activeClients),
+          isPositive: clientStats.active >= prevStats.value.activeClients,
+          icon: Users,
+          bgColor: 'bg-yellow-100',
+          iconColor: 'text-yellow-600'
+        }
+      ];
+    }
 
     // Update previous stats
     prevStats.value = currentStats;
@@ -112,6 +137,7 @@ const loadStats = async () => {
     stats.value = [];
   } finally {
     loading.value = false;
+    isRefreshing.value = false;
   }
 };
 
@@ -149,6 +175,15 @@ const exportStatsReport = () => {
 
 onMounted(() => {
   loadStats();
+  startAutoRefresh();
+  document.addEventListener('visibilitychange', handleVisibilityChange);
+});
+
+onUnmounted(() => {
+  if (refreshInterval) {
+    clearInterval(refreshInterval);
+  }
+  document.removeEventListener('visibilitychange', handleVisibilityChange);
 });
 </script>
 
@@ -169,15 +204,23 @@ onMounted(() => {
 
   <!-- Loaded State -->
   <div v-else>
-    <!-- Export Button -->
-    <div class="flex justify-start sm:justify-end mb-4">
+    <!-- Export Button and Refresh -->
+    <div class="flex justify-between items-center mb-4">
+      <button
+        @click="loadStats"
+        :disabled="isRefreshing"
+        class="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-lg transition-colors"
+      >
+        <RefreshCw :size="16" :class="{'animate-spin': isRefreshing}" />
+        <span class="hidden sm:inline">{{ isRefreshing ? 'Rafraîchissement...' : 'Rafraîchir' }}</span>
+        <span class="sm:hidden">{{ isRefreshing ? '...' : 'Refresh' }}</span>
+      </button>
       <button
         @click="exportStatsReport"
-        class="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-teal-500 hover:bg-teal-600 text-white font-medium rounded-lg transition-colors shadow-sm"
+        class="flex items-center justify-center gap-2 px-4 py-2 bg-teal-500 hover:bg-teal-600 text-white font-medium rounded-lg transition-colors shadow-sm"
       >
         <FileText :size="16" />
-        <span class="hidden sm:inline">Exporter le rapport</span>
-        <span class="sm:hidden">Exporter rapport</span>
+        <span class="hidden sm:inline">Exporter</span>
       </button>
     </div>
 

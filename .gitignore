@@ -52,3 +52,9 @@ db.json
 # Build artifacts
 build/
 dist/
+
+
+PRESENTATION_VIDEO_SCRIPT.md
+PWA_README.md
+JSON_SERVER_SETUP.md
+FIREBASE_MIGRATION_README.md

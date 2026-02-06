@@ -114,6 +114,17 @@ const filteredPayments = computed(() => {
   return filtered;
 });
 
+// Pagination
+const paginatedPayments = computed(() => {
+  const start = (currentPage.value - 1) * itemsPerPage.value;
+  const end = start + itemsPerPage.value;
+  return filteredPayments.value.slice(start, end);
+});
+
+const totalPages = computed(() => {
+  return Math.ceil(filteredPayments.value.length / itemsPerPage.value);
+});
+
 const formatAmount = (amount) => {
   return new Intl.NumberFormat('fr-FR').format(amount) + ' FCFA';
 };
@@ -417,6 +428,29 @@ onMounted(() => {
         <p class="text-gray-600">
           {{ searchQuery || selectedStatus !== 'Tous les statuts' ? 'Essayez de modifier vos filtres' : 'Aucun paiement enregistré' }}
         </p>
+      </div>
+
+      <!-- Pagination -->
+      <div v-if="totalPages > 1" class="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
+        <div class="text-sm text-gray-600">
+          Page {{ currentPage }} sur {{ totalPages }}
+        </div>
+        <div class="flex gap-2">
+          <button
+            @click="currentPage--"
+            :disabled="currentPage <= 1"
+            class="px-3 py-1 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Précédent
+          </button>
+          <button
+            @click="currentPage++"
+            :disabled="currentPage >= totalPages"
+            class="px-3 py-1 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Suivant
+          </button>
+        </div>
       </div>
     </div> <!-- End content container -->
   </div> <!-- End main container -->

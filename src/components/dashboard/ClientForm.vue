@@ -147,6 +147,19 @@ const submitForm = async () => {
       updateUsage('clients', 1);
       // Force synchronization with real database count
       await syncUsageCounts();
+
+      // Si un acompte a été versé, créer une transaction pour l'enregistrer dans la liste des paiements
+      if (form.value.acompte > 0) {
+        await transactionService.createTransaction({
+          clientId: savedClient.value.id,
+          amount: form.value.acompte,
+          description: 'Acompte initial',
+          dueDate: new Date().toISOString().split('T')[0],
+          status: 'completed', // L'acompte est déjà payé
+          type: 'payment',
+          isInitialAcompte: true
+        });
+      }
     }
 
     // After saving, show success
@@ -161,13 +174,11 @@ const submitForm = async () => {
         confirmButton: 'bg-teal-500 hover:bg-teal-600 text-white font-semibold py-2 px-4 rounded-xl'
       }
     }).then(() => {
-      // Automatiquement ouvrir le formulaire de paiement avec le client créé
-      emit('addPayment', savedClient.value || form.value);
       emit('saved');
       emit('close');
     });
 
-    // Return the saved client for payment form
+    // Return the saved client for potential use
     return savedClient;
   } catch (error) {
     console.error('Erreur sauvegarde client:', error);

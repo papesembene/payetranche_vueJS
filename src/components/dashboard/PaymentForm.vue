@@ -1,6 +1,6 @@
 <script setup>
-import { ref, computed } from 'vue';
-import { Calendar, DollarSign, CreditCard, Plus, X } from 'lucide-vue-next';
+import { ref, computed, watch } from 'vue';
+import { Calendar, DollarSign, CreditCard, Plus, X, AlertCircle } from 'lucide-vue-next';
 import { transactionService } from '../../services/transaction.service.js';
 import { clientService } from '../../services/client.service.js';
 import { useUserStore } from '../../stores/user.js';
@@ -23,6 +23,7 @@ const props = defineProps({
 const emit = defineEmits(['close', 'saved']);
 
 const loading = ref(false);
+const clientTransactions = ref([]);
 
 const paymentData = ref({
   amount: '',
@@ -35,6 +36,35 @@ const paymentData = ref({
 });
 
 const errors = ref({});
+
+// Charger les transactions du client
+const loadClientTransactions = async () => {
+  if (!props.client?.id) return;
+  try {
+    const transactions = await transactionService.getTransactions();
+    clientTransactions.value = transactions.filter(t => t.clientId === props.client.id);
+  } catch (error) {
+    console.error('Erreur chargement transactions:', error);
+    clientTransactions.value = [];
+  }
+};
+
+// Watch pour charger les transactions quand le formulaire s'ouvre
+watch(() => props.show, async (show) => {
+  if (show) {
+    await loadClientTransactions();
+  }
+});
+
+// Vérifier s'il y a des paiements en attente
+const hasPendingPayments = computed(() => {
+  return clientTransactions.value.some(t => t.status === 'pending');
+});
+
+// Nombre de paiements en attente
+const pendingPaymentsCount = computed(() => {
+  return clientTransactions.value.filter(t => t.status === 'pending').length;
+});
 
 // Helper function to parse formatted amount
 const parseFormattedAmount = (formattedAmount) => {
@@ -52,7 +82,7 @@ const remainingDebt = computed(() => {
   if (!props.client) return 0;
 
   // Always calculate from total and paid to ensure accuracy
-  const totalDebt = parseFormattedAmount(props.client.total) || 0;
+  const totalDebt = parseFormattedAmount(props.client.total) || parseFormattedAmount(props.client.totalDebt) || 0;
   const paid = parseFormattedAmount(props.client.paid) || 0;
   const remaining = totalDebt - paid;
 
@@ -101,6 +131,12 @@ const installmentAmount = computed(() => {
 const validateForm = () => {
   errors.value = {};
 
+  // Vérifier s'il y a déjà des paiements en attente
+  if (hasPendingPayments.value) {
+    errors.general = `Vous avez déjà ${pendingPaymentsCount.value} paiement(s) en attente pour ce client. Marquez-les comme payés avant d'ajouter de nouveaux paiements.`;
+    return false;
+  }
+
   // For installments, amount is calculated automatically, so no need to validate user input
   if (!paymentData.value.isInstallment) {
     if (!paymentData.value.amount || paymentData.value.amount <= 0) {
@@ -114,7 +150,7 @@ const validateForm = () => {
 
   // Due date is required only for installment payments
   if (paymentData.value.isInstallment && !paymentData.value.dueDate) {
-    errors.value.dueDate = 'La date d\'échéance est requise pour les paiements échelonnés';
+    errors.value.dueDate = "La date d'échéance est requise pour les paiements échelonnés";
   }
 
   // Validate due date if provided
@@ -124,7 +160,7 @@ const validateForm = () => {
     today.setHours(0, 0, 0, 0);
 
     if (dueDate < today) {
-      errors.value.dueDate = 'La date d\'échéance ne peut pas être dans le passé';
+      errors.value.dueDate = "La date d'échéance ne peut pas être dans le passé";
     }
   }
 
@@ -268,8 +304,22 @@ const today = new Date().toISOString().split('T')[0];
 
       <!-- Form -->
       <form @submit.prevent="handleSubmit" class="p-6 space-y-6">
+        <!-- Warning for pending payments -->
+        <div v-if="hasPendingPayments" class="bg-amber-50 border border-amber-200 rounded-xl p-4">
+          <div class="flex items-start gap-3">
+            <AlertCircle :size="20" class="text-amber-500 flex-shrink-0 mt-0.5" />
+            <div>
+              <p class="font-medium text-amber-800">Paiement(s) en attente</p>
+              <p class="text-sm text-amber-700 mt-1">
+                Vous avez {{ pendingPaymentsCount }} paiement(s) en attente pour ce client.
+                Marquez-les comme payés avant d'ajouter de nouveaux paiements.
+              </p>
+            </div>
+          </div>
+        </div>
+
         <!-- Error Message -->
-        <div v-if="errors.general" class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md">
+        <div v-if="errors.general && !hasPendingPayments" class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md">
           {{ errors.general }}
         </div>
 
@@ -402,7 +452,7 @@ const today = new Date().toISOString().split('T')[0];
           </button>
           <button
             type="submit"
-            :disabled="loading || !canAddPayment"
+            :disabled="loading || !canAddPayment || hasPendingPayments"
             class="flex-1 px-4 py-3 bg-teal-500 hover:bg-teal-600 text-white font-semibold rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {{ loading ? 'Création...' : paymentData.isInstallment && paymentData.installmentCount > 1 ? 'Créer les tranches' : 'Créer le paiement' }}
