@@ -29,7 +29,7 @@ watch(() => props.refresh, () => {
 });
 
 // Manual refresh function
-export const refreshStats = () => {
+const refreshStats = () => {
   loadStats();
 };
 
