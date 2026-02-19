@@ -74,9 +74,8 @@ const loadData = async () => {
         .filter(t => t.status === 'completed')
         .reduce((sum, t) => sum + (t.amount || 0), 0);
 
-      // Inclure l'acompte dans le montant déjà payé
-      const acompte = client.acompte || 0;
-      const totalPaid = totalPaidFromTransactions + acompte;
+      // Ne pas ajouter l'acompte deux fois (il est déjà dans les transactions)
+      const totalPaid = totalPaidFromTransactions;
 
       const totalDebt = client.totalDebt || 0;
       const remaining = totalDebt - totalPaid;
@@ -106,7 +105,7 @@ const loadData = async () => {
         status,
         statusColor,
         historyCount: clientTransactions.length,
-        acompte: formatAmount(acompte)
+        acompte: formatAmount(client.acompte || 0) // Afficher l'acompte séparément
       };
     });
   });
