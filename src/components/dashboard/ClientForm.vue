@@ -357,7 +357,7 @@ const closeModal = () => {
           :disabled="loading"
           class="flex-1 px-6 py-4 bg-teal-500 hover:bg-teal-600 disabled:bg-teal-300 text-white font-semibold text-lg rounded-xl transition-colors"
         >
-          {{ loading ? 'Sauvegarde...' : (currentStep === totalSteps ? (client ? 'Modifier' : 'Créer') : 'Suivant') }}
+          {{ loading ? 'Création en cours...' : (currentStep === totalSteps ? (client ? 'Modifier' : 'Créer') : 'Suivant') }}
         </button>
       </div>
     </form>

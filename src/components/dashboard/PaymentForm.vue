@@ -455,7 +455,7 @@ const today = new Date().toISOString().split('T')[0];
             :disabled="loading || !canAddPayment || hasPendingPayments"
             class="flex-1 px-4 py-3 bg-teal-500 hover:bg-teal-600 text-white font-semibold rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {{ loading ? 'Création...' : paymentData.isInstallment && paymentData.installmentCount > 1 ? 'Créer les tranches' : 'Créer le paiement' }}
+            {{ loading ? 'Création en cours...' : paymentData.isInstallment && paymentData.installmentCount > 1 ? 'Créer les tranches' : 'Créer le paiement' }}
           </button>
         </div>
       </form>
