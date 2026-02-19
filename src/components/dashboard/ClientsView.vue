@@ -67,49 +67,49 @@ const loadData = async () => {
 };
 
 // Calculer les données pour chaque client
-const clientsWithStats = computed(() => {
-  return clients.value.map(client => {
-    const clientTransactions = transactions.value.filter(t => t.clientId === client.id);
-    const totalPaidFromTransactions = clientTransactions
-      .filter(t => t.status === 'completed')
-      .reduce((sum, t) => sum + (t.amount || 0), 0);
+  const clientsWithStats = computed(() => {
+    return clients.value.map(client => {
+      const clientTransactions = transactions.value.filter(t => t.clientId === client.id);
+      const totalPaidFromTransactions = clientTransactions
+        .filter(t => t.status === 'completed')
+        .reduce((sum, t) => sum + (t.amount || 0), 0);
 
-    // Inclure l'acompte dans le montant déjà payé
-    const acompte = client.acompte || 0;
-    const totalPaid = totalPaidFromTransactions + acompte;
+      // Inclure l'acompte dans le montant déjà payé
+      const acompte = client.acompte || 0;
+      const totalPaid = totalPaidFromTransactions + acompte;
 
-    const totalDebt = client.totalDebt || 0;
-    const remaining = totalDebt - totalPaid;
-    const progress = totalDebt > 0 ? Math.round((totalPaid / totalDebt) * 100) : 0;
+      const totalDebt = client.totalDebt || 0;
+      const remaining = totalDebt - totalPaid;
+      const progress = totalDebt > 0 ? Math.round((totalPaid / totalDebt) * 100) : 0;
 
-    // Déterminer le statut
-    let status = 'En cours';
-    let statusColor = 'bg-blue-100 text-blue-700';
+      // Déterminer le statut
+      let status = 'En cours';
+      let statusColor = 'bg-blue-100 text-blue-700';
 
-    if (remaining <= 0) {
-      status = 'Payé';
-      statusColor = 'bg-green-100 text-green-700';
-    } else if (clientTransactions.some(t => t.status === 'pending' && new Date(t.dueDate) < new Date())) {
-      status = 'En retard';
-      statusColor = 'bg-red-100 text-red-700';
-    }
+      if (remaining <= 0) {
+        status = 'Payé';
+        statusColor = 'bg-green-100 text-green-700';
+      } else if (clientTransactions.some(t => t.status === 'pending' && new Date(t.dueDate) < new Date())) {
+        status = 'En retard';
+        statusColor = 'bg-red-100 text-red-700';
+      }
 
-    return {
-      id: client.id,
-      name: client.name,
-      phone: client.phone,
-      address: client.address,
-      total: formatAmount(totalDebt),
-      paid: formatAmount(totalPaid),
-      remaining: formatAmount(remaining),
-      progress,
-      status,
-      statusColor,
-      historyCount: clientTransactions.length,
-      acompte: formatAmount(acompte)
-    };
+      return {
+        id: client.id,
+        name: client.name,
+        phone: client.phone,
+        address: client.address,
+        total: formatAmount(totalDebt),
+        paid: formatAmount(totalPaid),
+        remaining: formatAmount(remaining),
+        progress,
+        status,
+        statusColor,
+        historyCount: clientTransactions.length,
+        acompte: formatAmount(acompte)
+      };
+    });
   });
-});
 
 // Filtrage des clients
 const filteredClients = computed(() => {

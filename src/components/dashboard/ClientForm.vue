@@ -3,6 +3,7 @@ import { ref, watch } from 'vue';
 import { X, User, Phone, Home, CheckCircle, DollarSign } from 'lucide-vue-next';
 import Swal from 'sweetalert2';
 import { clientService } from '../../services/client.service.js';
+import { transactionService } from '../../services/transaction.service.js';
 import { useUserStore } from '../../stores/user.js';
 import { useUser } from '../../composables/useUser.js';
 
