@@ -1,7 +1,6 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue';
 import {
-  ArrowLeft,
   Ban,
   Building2,
   CheckCircle,
@@ -17,12 +16,10 @@ import {
   Users,
   Wallet
 } from 'lucide-vue-next';
-import { useRouter } from 'vue-router';
 import DashboardHeader from '../components/dashboard/DashboardHeader.vue';
 import MobileMoneyIcon from '../components/dashboard/MobileMoneyIcon.vue';
 import { adminService } from '../services/admin.service.js';
 
-const router = useRouter();
 const loading = ref(false);
 const actionLoadingId = ref(null);
 const error = ref('');
@@ -231,17 +228,9 @@ onMounted(loadAdmin);
 
 <template>
   <div class="min-h-screen bg-slate-50">
-    <DashboardHeader />
+    <DashboardHeader admin-mode />
 
     <main class="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8">
-      <button
-        class="mb-5 flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-slate-950"
-        @click="router.push('/dashboard')"
-      >
-        <ArrowLeft :size="18" />
-        Retour
-      </button>
-
       <div class="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div class="mb-1 flex items-center gap-2 text-teal-700">

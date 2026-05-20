@@ -3,18 +3,18 @@ import { computed, ref } from 'vue';
 import { Bell, Settings, DollarSign, Crown, LogOut, ChevronDown, Shield, User } from 'lucide-vue-next';
 import { useUser } from '../../composables/useUser.js';
 import { useRouter } from 'vue-router';
+import { canAccessPlatformAdmin } from '../../utils/access.js';
 
 const router = useRouter();
+const props = defineProps({
+  adminMode: {
+    type: Boolean,
+    default: false
+  }
+});
 const { user, currentPlan, loading, logout } = useUser();
 const showUserMenu = ref(false);
-const adminEmails = (import.meta.env.VITE_PLATFORM_ADMIN_EMAILS || '')
-  .split(',')
-  .map((email) => email.trim().toLowerCase())
-  .filter(Boolean);
-const isPlatformAdmin = computed(() =>
-  import.meta.env.VITE_ALLOW_DEV_ADMIN === 'true' ||
-  adminEmails.includes(user.value?.email?.toLowerCase())
-);
+const isPlatformAdmin = computed(() => canAccessPlatformAdmin(user.value));
 
 const handleLogout = async () => {
   await logout();
@@ -37,13 +37,13 @@ const handleLogout = async () => {
         <!-- Right Section -->
         <div class="flex items-center gap-1 sm:gap-3 lg:gap-4">
           <!-- Notification Icon -->
-          <button class="hidden sm:block p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors">
+          <button v-if="!props.adminMode" class="hidden sm:block p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors">
             <Bell :size="21" />
           </button>
 
           <!-- Settings Icon -->
           <router-link
-            v-if="isPlatformAdmin"
+            v-if="isPlatformAdmin && !props.adminMode"
             to="/admin"
             class="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
           >
@@ -52,6 +52,7 @@ const handleLogout = async () => {
 
           <!-- Settings Icon -->
           <router-link
+            v-if="!props.adminMode"
             to="/settings"
             class="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
           >
@@ -71,8 +72,9 @@ const handleLogout = async () => {
               <div class="hidden md:block text-left">
                 <div class="text-sm font-semibold text-gray-900">{{ user?.name || 'Utilisateur' }}</div>
                 <div class="flex items-center gap-1">
-                  <Crown :size="12" class="text-teal-500" />
-                  <span class="text-xs text-gray-500">{{ currentPlan?.name || 'Chargement...' }}</span>
+                  <Shield v-if="props.adminMode" :size="12" class="text-teal-500" />
+                  <Crown v-else :size="12" class="text-teal-500" />
+                  <span class="text-xs text-gray-500">{{ props.adminMode ? 'Admin plateforme' : (currentPlan?.name || 'Chargement...') }}</span>
                 </div>
               </div>
               <ChevronDown :size="16" class="text-gray-500 hidden md:block transition-transform" :class="{ 'rotate-180': showUserMenu }" />
@@ -94,8 +96,9 @@ const handleLogout = async () => {
                   <div>
                     <div class="text-sm font-semibold text-gray-900">{{ user?.name || 'Utilisateur' }}</div>
                     <div class="flex items-center gap-1">
-                      <Crown :size="12" class="text-teal-500" />
-                      <span class="text-xs text-gray-500">{{ currentPlan?.name || 'Chargement...' }}</span>
+                      <Shield v-if="props.adminMode" :size="12" class="text-teal-500" />
+                      <Crown v-else :size="12" class="text-teal-500" />
+                      <span class="text-xs text-gray-500">{{ props.adminMode ? 'Admin plateforme' : (currentPlan?.name || 'Chargement...') }}</span>
                     </div>
                   </div>
                 </div>
@@ -103,7 +106,7 @@ const handleLogout = async () => {
 
               <!-- Menu Items -->
               <router-link
-                v-if="isPlatformAdmin"
+                v-if="isPlatformAdmin && !props.adminMode"
                 to="/admin"
                 @click="showUserMenu = false"
                 class="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-gray-50 text-gray-700"
@@ -113,6 +116,7 @@ const handleLogout = async () => {
               </router-link>
 
               <router-link
+                v-if="!props.adminMode"
                 to="/settings"
                 @click="showUserMenu = false"
                 class="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-gray-50 text-gray-700"
@@ -122,6 +126,7 @@ const handleLogout = async () => {
               </router-link>
 
               <router-link
+                v-if="!props.adminMode"
                 to="/settings"
                 @click="showUserMenu = false"
                 class="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-gray-50 text-gray-700"

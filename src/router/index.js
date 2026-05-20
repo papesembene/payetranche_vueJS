@@ -8,6 +8,7 @@ import DashboardPage from '../views/DashboardPage.vue';
 import SettingsPage from '../views/SettingsPage.vue';
 import PaymentSuccessPage from '../views/PaymentSuccessPage.vue';
 import PaymentCancelPage from '../views/PaymentCancelPage.vue';
+import { canAccessPlatformAdmin, isExplicitPlatformAdmin } from '../utils/access.js';
 
 // Navigation guard for authentication and subscription checks
 const readStoredUser = () => {
@@ -47,20 +48,16 @@ const handleIncompleteOnboarding = (user, to, next) => {
   return false;
 };
 
-const adminEmails = (import.meta.env.VITE_PLATFORM_ADMIN_EMAILS || '')
-  .split(',')
-  .map((email) => email.trim().toLowerCase())
-  .filter(Boolean);
-
-const isPlatformAdmin = (user) =>
-  import.meta.env.VITE_ALLOW_DEV_ADMIN === 'true' ||
-  adminEmails.includes(user?.email?.toLowerCase());
-
 const requireAuth = (to, from, next) => {
   const user = readStoredUser();
 
   if (!user) {
     redirectToLogin(to, next);
+    return;
+  }
+
+  if (isExplicitPlatformAdmin(user)) {
+    next('/admin');
     return;
   }
 
@@ -77,9 +74,7 @@ const requirePlatformAdmin = (to, from, next) => {
     return;
   }
 
-  if (handleIncompleteOnboarding(user, to, next)) return;
-
-  if (!isPlatformAdmin(user)) {
+  if (!canAccessPlatformAdmin(user)) {
     next('/dashboard');
     return;
   }

@@ -254,6 +254,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { DollarSign, User, Lock, CheckCircle, Gift } from 'lucide-vue-next';
 import { useUser } from '../composables/useUser.js';
 import { authService } from '../services/auth.service.js';
+import { getPostAuthPath, getSafeRedirectPath } from '../utils/access.js';
 
 const router = useRouter();
 const route = useRoute();
@@ -276,23 +277,27 @@ const totalSteps = 3;
 const googleButtonEl = ref(null);
 
 const getRedirectPath = () => {
-  const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '';
-  if (!redirect.startsWith('/') || redirect.startsWith('//')) return '';
-  if (redirect === '/login' || redirect === '/register') return '';
-  return redirect;
+  return getSafeRedirectPath(route.query.redirect);
 };
 
 const goAfterAuth = (user) => {
   const redirectPath = getRedirectPath();
+  const nextPath = getPostAuthPath(user, redirectPath);
+
+  if (nextPath === '/admin') {
+    router.push('/admin');
+    return;
+  }
+
   if (!user?.onboardingCompleted) {
     if (redirectPath) {
       localStorage.setItem('post_onboarding_redirect', redirectPath);
     }
-    router.push('/onboarding');
+    router.push(nextPath);
     return;
   }
 
-  router.push(redirectPath || '/dashboard');
+  router.push(nextPath);
 };
 
 const validateName = (name) => {
