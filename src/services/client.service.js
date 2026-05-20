@@ -93,7 +93,7 @@ class ClientService {
         }
       }
 
-      return this.getClient(client.id);
+      return normalizeClient(client);
     } catch (error) {
       throw new Error(error.response?.data?.message || 'Erreur lors de la création du client');
     }
