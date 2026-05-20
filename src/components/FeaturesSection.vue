@@ -1,128 +1,95 @@
 <script setup>
-import { LayoutGrid, Bell, TrendingUp, Smartphone, ShieldCheck, Globe, FileText, ArrowRight } from 'lucide-vue-next';
+import {
+  Bell,
+  CreditCard,
+  Link2,
+  MessageCircle,
+  ShieldCheck,
+  Smartphone,
+  WalletCards
+} from 'lucide-vue-next';
+
+const mainFeatures = [
+  {
+    icon: CreditCard,
+    title: 'Ventes à crédit',
+    description: 'Le vendeur enregistre une dette client avec montant, acompte, échéance et statut.'
+  },
+  {
+    icon: Link2,
+    title: 'Lien de suivi client',
+    description: 'Le client reçoit un lien permanent pour voir son solde, ses tranches et payer sans créer de compte.'
+  },
+  {
+    icon: Smartphone,
+    title: 'Paiement Mobile Money',
+    description: 'Les paiements clients passent par PayTech avec Wave et Orange Money.'
+  },
+  {
+    icon: WalletCards,
+    title: 'Reversements vendeur',
+    description: 'L’argent encaissé est suivi côté admin avant reversement vers le compte Wave ou Orange Money du vendeur.'
+  }
+];
+
+const secondaryFeatures = [
+  {
+    icon: Bell,
+    title: 'Relances WhatsApp',
+    description: 'Liste des clients à relancer et messages prêts à envoyer sur WhatsApp.'
+  },
+  {
+    icon: ShieldCheck,
+    title: 'Séparation par entreprise',
+    description: 'Chaque vendeur voit uniquement ses clients, ses dettes et ses paiements.'
+  },
+  {
+    icon: MessageCircle,
+    title: 'Simple pour le terrain',
+    description: 'Une interface pensée mobile pour créer une vente, encaisser et relancer rapidement.'
+  }
+];
 </script>
 
 <template>
-  <section id="features" class="bg-gray-50 py-24 relative overflow-hidden">
-    <!-- Decorative Background Elements -->
-    <div class="absolute top-20 right-10 w-72 h-72 bg-teal-400/10 rounded-full blur-3xl"></div>
-    <div class="absolute bottom-20 left-10 w-96 h-96 bg-blue-400/10 rounded-full blur-3xl"></div>
-    
-    <div class="max-w-7xl mx-auto px-6 lg:px-8 relative z-10">
-      <!-- Badge -->
-      <div class="text-center mb-8">
-        <span class="inline-block px-6 py-2.5 bg-teal-50 text-teal-600 rounded-full text-sm font-semibold border border-teal-100">
-          Fonctionnalités
+  <section id="features" class="bg-gray-50 py-20">
+    <div class="mx-auto max-w-7xl px-6 lg:px-8">
+      <div class="mb-12 max-w-3xl">
+        <span class="inline-block rounded-lg border border-teal-100 bg-teal-50 px-4 py-2 text-sm font-black text-teal-700">
+          Fonctionnalités réelles
         </span>
+        <h2 class="mt-5 text-3xl font-black text-gray-950 sm:text-5xl">
+          Ce que PayTranche fait aujourd’hui
+        </h2>
+        <p class="mt-4 text-lg text-gray-600">
+          Un outil simple pour les boutiques, salons, vendeurs d’électronique ou meubles qui acceptent les paiements par tranche.
+        </p>
       </div>
 
-      <!-- Heading -->
-      <h2 class="text-4xl md:text-5xl font-bold text-center mb-6 text-gray-900">
-        Tout ce dont vous avez besoin
-      </h2>
-
-      <!-- Subtitle -->
-      <p class="text-center text-gray-600 text-lg mb-16 max-w-3xl mx-auto">
-        Des outils puissants et simples pour gérer efficacement vos paiements échelonnés
-      </p>
-
-      <!-- Main Feature Cards Grid -->
-      <div class="grid md:grid-cols-2 gap-8 mb-16 max-w-6xl mx-auto">
-        <!-- Card 1: Tableau de bord intuitif -->
-        <div class="bg-gradient-to-br from-teal-500 to-teal-600 rounded-3xl p-10 text-white shadow-2xl hover:shadow-3xl transition-all duration-300 hover:-translate-y-1 group">
-          <div class="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-            <LayoutGrid :size="32" :stroke-width="2" class="text-white" />
+      <div class="grid gap-4 md:grid-cols-2">
+        <article
+          v-for="feature in mainFeatures"
+          :key="feature.title"
+          class="rounded-lg border border-gray-200 bg-white p-6 shadow-sm"
+        >
+          <div class="mb-5 flex h-12 w-12 items-center justify-center rounded-lg bg-teal-600 text-white">
+            <component :is="feature.icon" :size="25" />
           </div>
-          <h3 class="text-2xl font-bold mb-4">Tableau de bord intuitif</h3>
-          <p class="text-white/90 mb-6 leading-relaxed">
-            Visualisez tous vos clients, montants et statuts de paiement en un coup d'œil
-          </p>
-          <a href="#" class="inline-flex items-center gap-2 text-white font-semibold hover:gap-3 transition-all group/link">
-            En savoir plus
-            <ArrowRight :size="20" :stroke-width="2" class="group-hover/link:translate-x-1 transition-transform" />
-          </a>
-        </div>
-
-        <!-- Card 2: Alertes automatiques -->
-        <div class="bg-gradient-to-br from-red-400 to-red-500 rounded-3xl p-10 text-white shadow-2xl hover:shadow-3xl transition-all duration-300 hover:-translate-y-1 group">
-          <div class="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-            <Bell :size="32" :stroke-width="2" class="text-white" />
-          </div>
-          <h3 class="text-2xl font-bold mb-4">Alertes automatiques</h3>
-          <p class="text-white/90 mb-6 leading-relaxed">
-            Recevez des notifications pour les tranches manquées ou retardées
-          </p>
-          <a href="#" class="inline-flex items-center gap-2 text-white font-semibold hover:gap-3 transition-all group/link">
-            En savoir plus
-            <ArrowRight :size="20" :stroke-width="2" class="group-hover/link:translate-x-1 transition-transform" />
-          </a>
-        </div>
-
-        <!-- Card 3: Suivi détaillé -->
-        <div class="bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-3xl p-10 text-white shadow-2xl hover:shadow-3xl transition-all duration-300 hover:-translate-y-1 group">
-          <div class="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-            <TrendingUp :size="32" :stroke-width="2" class="text-white" />
-          </div>
-          <h3 class="text-2xl font-bold mb-4">Suivi détaillé</h3>
-          <p class="text-white/90 mb-6 leading-relaxed">
-            Historique complet des versements pour chaque client avec dates et montants
-          </p>
-          <a href="#" class="inline-flex items-center gap-2 text-white font-semibold hover:gap-3 transition-all group/link">
-            En savoir plus
-            <ArrowRight :size="20" :stroke-width="2" class="group-hover/link:translate-x-1 transition-transform" />
-          </a>
-        </div>
-
-        <!-- Card 4: Interface mobile -->
-        <div class="bg-gradient-to-br from-orange-400 to-orange-500 rounded-3xl p-10 text-white shadow-2xl hover:shadow-3xl transition-all duration-300 hover:-translate-y-1 group">
-          <div class="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-            <Smartphone :size="32" :stroke-width="2" class="text-white" />
-          </div>
-          <h3 class="text-2xl font-bold mb-4">Interface mobile</h3>
-          <p class="text-white/90 mb-6 leading-relaxed">
-            Gérez vos paiements depuis votre téléphone, n'importe où, n'importe quand
-          </p>
-          <a href="#" class="inline-flex items-center gap-2 text-white font-semibold hover:gap-3 transition-all group/link">
-            En savoir plus
-            <ArrowRight :size="20" :stroke-width="2" class="group-hover/link:translate-x-1 transition-transform" />
-          </a>
-        </div>
+          <h3 class="text-xl font-black text-gray-950">{{ feature.title }}</h3>
+          <p class="mt-3 text-gray-600">{{ feature.description }}</p>
+        </article>
       </div>
 
-      <!-- Bottom Feature Items -->
-      <div class="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
-        <!-- Sécurisé -->
-        <div class="text-center group">
-          <div class="w-16 h-16 bg-teal-50 rounded-2xl flex items-center justify-center mx-auto mb-6 group-hover:bg-teal-100 transition-colors">
-            <ShieldCheck :size="32" :stroke-width="2" class="text-teal-600" />
-          </div>
-          <h3 class="text-xl font-bold text-gray-900 mb-3">Sécurisé</h3>
-          <p class="text-gray-600 leading-relaxed">
-            Vos données sont protégées et cryptées
-          </p>
-        </div>
-
-        <!-- Multi-devises -->
-        <div class="text-center group">
-          <div class="w-16 h-16 bg-teal-50 rounded-2xl flex items-center justify-center mx-auto mb-6 group-hover:bg-teal-100 transition-colors">
-            <Globe :size="32" :stroke-width="2" class="text-teal-600" />
-          </div>
-          <h3 class="text-xl font-bold text-gray-900 mb-3">Multi-devises</h3>
-          <p class="text-gray-600 leading-relaxed">
-            Support FCFA et autres devises
-          </p>
-        </div>
-
-        <!-- Rapports détaillés -->
-        <div class="text-center group">
-          <div class="w-16 h-16 bg-teal-50 rounded-2xl flex items-center justify-center mx-auto mb-6 group-hover:bg-teal-100 transition-colors">
-            <FileText :size="32" :stroke-width="2" class="text-teal-600" />
-          </div>
-          <h3 class="text-xl font-bold text-gray-900 mb-3">Rapports détaillés</h3>
-          <p class="text-gray-600 leading-relaxed">
-            Exportez vos données en PDF ou Excel
-          </p>
-        </div>
+      <div class="mt-4 grid gap-4 md:grid-cols-3">
+        <article
+          v-for="feature in secondaryFeatures"
+          :key="feature.title"
+          class="rounded-lg border border-gray-200 bg-white p-5"
+        >
+          <component :is="feature.icon" :size="24" class="text-teal-600" />
+          <h3 class="mt-4 font-black text-gray-950">{{ feature.title }}</h3>
+          <p class="mt-2 text-sm text-gray-600">{{ feature.description }}</p>
+        </article>
       </div>
     </div>
   </section>

@@ -1,9 +1,6 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue';
-import { DollarSign, Menu, X, Wifi, WifiOff } from 'lucide-vue-next';
-import { useOffline } from '../composables/useOffline.js';
-
-const { isOnline, connectionStatus } = useOffline();
+import { DollarSign, Menu, X } from 'lucide-vue-next';
 
 const isScrolled = ref(false);
 const isMobileMenuOpen = ref(false);
@@ -64,20 +61,6 @@ onUnmounted(() => {
           >
             PayTranche
           </span>
-
-          <!-- Online/Offline Indicator -->
-          <div
-            :class="[
-              'hidden md:flex items-center gap-2 px-3 py-1 rounded-full text-sm font-medium transition-all',
-              connectionStatus.bgColor,
-              connectionStatus.color
-            ]"
-            :title="connectionStatus.message"
-          >
-            <Wifi v-if="isOnline" :size="14" />
-            <WifiOff v-else :size="14" />
-            <span class="hidden lg:inline">{{ connectionStatus.message }}</span>
-          </div>
         </div>
 
         <!-- Navigation Links -->
@@ -100,17 +83,27 @@ onUnmounted(() => {
               isScrolled ? 'text-gray-700' : 'text-white/90 hover:text-white'
             ]"
           >
-            Services
+            Comment ça marche
           </a>
-          <a 
-            href="#testimonials" 
-            @click.prevent="scrollToSection('testimonials')"
+          <a
+            href="#use-cases"
+            @click.prevent="scrollToSection('use-cases')"
             :class="[
               'hover:text-teal-500 transition-colors font-medium cursor-pointer',
               isScrolled ? 'text-gray-700' : 'text-white/90 hover:text-white'
             ]"
           >
-            Témoignages
+            Cas d’usage
+          </a>
+          <a
+            href="#pricing"
+            @click.prevent="scrollToSection('pricing')"
+            :class="[
+              'hover:text-teal-500 transition-colors font-medium cursor-pointer',
+              isScrolled ? 'text-gray-700' : 'text-white/90 hover:text-white'
+            ]"
+          >
+            Tarifs
           </a>
           <a 
             href="#contact" 
@@ -179,14 +172,21 @@ onUnmounted(() => {
           @click.prevent="scrollToSection('services')"
           class="block py-3 text-gray-700 hover:text-teal-500 font-medium transition-colors cursor-pointer"
         >
-          Services
+          Comment ça marche
         </a>
-        <a 
-          href="#testimonials" 
-          @click.prevent="scrollToSection('testimonials')"
+        <a
+          href="#use-cases"
+          @click.prevent="scrollToSection('use-cases')"
           class="block py-3 text-gray-700 hover:text-teal-500 font-medium transition-colors cursor-pointer"
         >
-          Témoignages
+          Cas d’usage
+        </a>
+        <a
+          href="#pricing"
+          @click.prevent="scrollToSection('pricing')"
+          class="block py-3 text-gray-700 hover:text-teal-500 font-medium transition-colors cursor-pointer"
+        >
+          Tarifs
         </a>
         <a 
           href="#contact" 

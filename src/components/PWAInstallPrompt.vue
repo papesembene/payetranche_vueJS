@@ -43,7 +43,7 @@ onMounted(() => {
       <div class="flex-1">
         <h3 class="font-semibold text-gray-900 mb-1">Installer Paytranche</h3>
         <p class="text-sm text-gray-600 mb-3">
-          Installez l'application pour un accès rapide et hors ligne !
+          Installez l'application pour un accès rapide depuis votre téléphone.
         </p>
         <div class="flex gap-2">
           <button
