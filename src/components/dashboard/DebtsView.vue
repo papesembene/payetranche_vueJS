@@ -1,10 +1,9 @@
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue';
-import { AlertTriangle, CalendarDays, Check, ChevronDown, Copy, CreditCard, ExternalLink, Link2, ListChecks, MessageCircle, Plus, Search, Smartphone, X } from 'lucide-vue-next';
+import { AlertTriangle, CalendarDays, Check, ChevronDown, Copy, CreditCard, ExternalLink, Link2, ListChecks, MessageCircle, Plus, Search, X } from 'lucide-vue-next';
 import { clientService } from '../../services/client.service.js';
 import { clientPortalService } from '../../services/clientPortal.service.js';
 import { installmentService } from '../../services/installment.service.js';
-import { paytechService } from '../../services/paytech.service.js';
 import { transactionService } from '../../services/transaction.service.js';
 
 const props = defineProps({
@@ -33,9 +32,7 @@ const showPaymentLinkModal = ref(false);
 const selectedDebt = ref(null);
 const errors = ref({});
 const linkCopied = ref(false);
-const simulateLoading = ref(false);
 const generatedPaymentLink = ref({
-  paymentRequestId: '',
   debtId: '',
   url: '',
   clientName: '',
@@ -72,8 +69,6 @@ const planForm = ref({
 });
 
 const statusFilters = ['À récupérer', 'En retard', 'Payées', 'Toutes'];
-const MIN_PAYTECH_AMOUNT = 101;
-const isPaytechTestMode = import.meta.env.VITE_APP_ENV !== 'production';
 
 watch(() => props.refresh, () => {
   loadData();
@@ -84,12 +79,6 @@ const today = new Date().toISOString().split('T')[0];
 const formatAmount = (amount) => {
   return new Intl.NumberFormat('fr-FR').format(Number(amount || 0)) + ' FCFA';
 };
-
-const canSendPaytechLink = (amount) => Number(amount || 0) >= MIN_PAYTECH_AMOUNT;
-
-const paytechMinimumMessage = (amount) => (
-  `PayTech accepte seulement les paiements supérieurs à 100 FCFA. Montant actuel: ${formatAmount(amount)}.`
-);
 
 const normalizeWhatsAppPhone = (phone = '') => {
   const digits = String(phone).replace(/\D/g, '').replace(/^00/, '');
@@ -117,9 +106,8 @@ const getWhatsAppUrl = () => {
   return phone ? `https://wa.me/${phone}?text=${text}` : `https://wa.me/?text=${text}`;
 };
 
-const showGeneratedPaymentLink = ({ request, debt, amount, label, kind = 'paytech' }) => {
+const showGeneratedPaymentLink = ({ request, debt, amount, label, kind = 'portal' }) => {
   generatedPaymentLink.value = {
-    paymentRequestId: request.id || '',
     debtId: debt.id,
     url: request.redirectUrl || request.url,
     clientName: debt.clientName,
@@ -135,7 +123,6 @@ const showGeneratedPaymentLink = ({ request, debt, amount, label, kind = 'paytec
 const closePaymentLinkModal = () => {
   showPaymentLinkModal.value = false;
   linkCopied.value = false;
-  simulateLoading.value = false;
 };
 
 const copyPaymentLink = async () => {
@@ -190,25 +177,6 @@ const sendClientPortalLink = async (debt) => {
     alert(error.message || 'Impossible de créer le lien de suivi');
   } finally {
     actionLoadingId.value = null;
-  }
-};
-
-const simulatePaytechPayment = async () => {
-  if (!generatedPaymentLink.value.paymentRequestId) return;
-
-  try {
-    simulateLoading.value = true;
-    await paytechService.simulatePayment(generatedPaymentLink.value.paymentRequestId);
-    await loadData();
-    if (isExpanded(generatedPaymentLink.value.debtId)) {
-      await loadDebtTimeline(generatedPaymentLink.value.debtId, true);
-    }
-    emit('updated');
-    closePaymentLinkModal();
-  } catch (error) {
-    alert(error.message || 'Simulation PayTech impossible');
-  } finally {
-    simulateLoading.value = false;
   }
 };
 
@@ -620,70 +588,6 @@ const collectPayment = async () => {
   }
 };
 
-const sendPaytechLink = async (debt) => {
-  if (!canSendPaytechLink(debt.remainingAmount)) {
-    alert(paytechMinimumMessage(debt.remainingAmount));
-    return;
-  }
-
-  try {
-    actionLoadingId.value = debt.id;
-    const request = await paytechService.createCreditPayment(debt.id, {
-      targetPayment: 'Orange Money, Wave',
-      clientPhone: debt.clientPhone
-    });
-
-    if (request.redirectUrl) {
-      showGeneratedPaymentLink({
-        request,
-        debt,
-        amount: debt.remainingAmount,
-        label: 'paiement'
-      });
-      if (isExpanded(debt.id)) {
-        await loadDebtTimeline(debt.id, true);
-      }
-    }
-  } catch (error) {
-    alert(error.message || 'Impossible de créer le lien PayTech');
-  } finally {
-    actionLoadingId.value = null;
-  }
-};
-
-const sendInstallmentPaytechLink = async (debt, installment) => {
-  if (!canSendPaytechLink(installment.remainingAmount)) {
-    alert(paytechMinimumMessage(installment.remainingAmount));
-    return;
-  }
-
-  try {
-    actionLoadingId.value = installment.id;
-    const request = await paytechService.createCreditPayment(debt.id, {
-      amount: installment.remainingAmount,
-      installmentId: installment.id,
-      targetPayment: 'Orange Money, Wave',
-      clientPhone: debt.clientPhone
-    });
-
-    if (request.redirectUrl) {
-      showGeneratedPaymentLink({
-        request,
-        debt,
-        amount: installment.remainingAmount,
-        label: `paiement de la tranche ${installment.number}`
-      });
-      if (isExpanded(debt.id)) {
-        await loadDebtTimeline(debt.id, true);
-      }
-    }
-  } catch (error) {
-    alert(error.message || 'Impossible de créer le lien PayTech pour cette tranche');
-  } finally {
-    actionLoadingId.value = null;
-  }
-};
-
 onMounted(() => {
   loadData();
 });
@@ -796,28 +700,13 @@ onMounted(() => {
           <div class="lg:w-72">
             <div v-if="debt.remainingAmount > 0" class="grid gap-2">
               <button
-                @click="sendPaytechLink(debt)"
-                :disabled="actionLoadingId === debt.id || !canSendPaytechLink(debt.remainingAmount)"
-                :title="!canSendPaytechLink(debt.remainingAmount) ? paytechMinimumMessage(debt.remainingAmount) : 'Créer un lien PayTech'"
-                class="inline-flex items-center justify-center gap-2 rounded-lg bg-teal-500 px-4 py-3 text-sm font-semibold text-white hover:bg-teal-600 disabled:opacity-60"
-              >
-                <Smartphone :size="17" />
-                Envoyer lien de paiement
-              </button>
-              <button
                 @click="sendClientPortalLink(debt)"
                 :disabled="actionLoadingId === `portal-${debt.id}`"
-                class="inline-flex items-center justify-center gap-2 rounded-lg border border-teal-200 px-4 py-3 text-sm font-semibold text-teal-700 hover:bg-teal-50 disabled:opacity-60"
+                class="inline-flex items-center justify-center gap-2 rounded-lg bg-teal-500 px-4 py-3 text-sm font-semibold text-white hover:bg-teal-600 disabled:opacity-60"
               >
                 <Link2 :size="17" />
-                Lien suivi client
+                Envoyer au client
               </button>
-              <p
-                v-if="!canSendPaytechLink(debt.remainingAmount)"
-                class="rounded-lg bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-700"
-              >
-                Lien PayTech disponible à partir de 101 FCFA.
-              </p>
               <button
                 @click="openPaymentModal(debt)"
                 class="inline-flex items-center justify-center gap-2 rounded-lg border border-green-200 px-4 py-3 text-sm font-semibold text-green-700 hover:bg-green-50"
@@ -877,21 +766,13 @@ onMounted(() => {
                   {{ installment.displayStatus }}
                 </span>
               </div>
-              <div v-if="installment.remainingAmount > 0" class="grid grid-cols-2 gap-2 mt-3">
-                <button
-                  @click="sendInstallmentPaytechLink(debt, installment)"
-                  :disabled="actionLoadingId === installment.id || !canSendPaytechLink(installment.remainingAmount)"
-                  :title="!canSendPaytechLink(installment.remainingAmount) ? paytechMinimumMessage(installment.remainingAmount) : 'Créer un lien PayTech'"
-                  class="px-3 py-2 bg-teal-500 hover:bg-teal-600 text-white text-sm font-semibold rounded-lg disabled:opacity-60"
-                >
-                  Lien
-                </button>
+              <div v-if="installment.remainingAmount > 0" class="mt-3">
                 <button
                   @click="payInstallment(installment)"
                   :disabled="actionLoadingId === installment.id"
-                  class="px-3 py-2 border border-green-200 text-green-700 hover:bg-green-50 text-sm font-semibold rounded-lg disabled:opacity-60"
+                  class="w-full px-3 py-2 border border-green-200 text-green-700 hover:bg-green-50 text-sm font-semibold rounded-lg disabled:opacity-60"
                 >
-                  Reçu
+                  Marquer reçu
                 </button>
               </div>
             </div>
@@ -1187,9 +1068,7 @@ onMounted(() => {
     <div v-if="showPaymentLinkModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-end sm:items-center justify-center z-50 sm:p-4">
       <div class="bg-white rounded-t-2xl sm:rounded-2xl shadow-xl max-w-md w-full max-h-[92vh] overflow-y-auto">
         <div class="sticky top-0 bg-white flex items-center justify-between p-4 sm:p-6 border-b border-gray-200">
-          <h2 class="text-xl font-bold text-gray-900">
-            {{ generatedPaymentLink.kind === 'portal' ? 'Lien de suivi' : 'Lien PayTech' }}
-          </h2>
+          <h2 class="text-xl font-bold text-gray-900">Lien client</h2>
           <button @click="closePaymentLinkModal" class="p-2 hover:bg-gray-100 rounded-lg">
             <X :size="20" class="text-gray-500" />
           </button>
@@ -1204,9 +1083,7 @@ onMounted(() => {
           </div>
 
           <div>
-            <label class="block text-sm font-semibold text-gray-700 mb-2">
-              {{ generatedPaymentLink.kind === 'portal' ? 'Lien à garder par le client' : 'Lien' }}
-            </label>
+            <label class="block text-sm font-semibold text-gray-700 mb-2">Lien à envoyer au client</label>
             <input
               :value="generatedPaymentLink.url"
               readonly
@@ -1242,16 +1119,6 @@ onMounted(() => {
               Ouvrir
             </button>
 
-            <button
-              v-if="isPaytechTestMode && generatedPaymentLink.paymentRequestId"
-              type="button"
-              :disabled="simulateLoading"
-              @click="simulatePaytechPayment"
-              class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 font-semibold text-amber-800 hover:bg-amber-100 disabled:opacity-60"
-            >
-              <Check :size="18" />
-              {{ simulateLoading ? 'Simulation...' : 'Simuler paiement PayTech' }}
-            </button>
           </div>
         </div>
       </div>
