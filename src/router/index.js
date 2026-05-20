@@ -4,6 +4,7 @@ import LoginPage from '../views/LoginPage.vue';
 import RegisterPage from '../views/RegisterPage.vue';
 import OnboardingPage from '../views/OnboardingPage.vue';
 import AdminPage from '../views/AdminPage.vue';
+import ClientPortalPage from '../views/ClientPortalPage.vue';
 import DashboardPage from '../views/DashboardPage.vue';
 import SettingsPage from '../views/SettingsPage.vue';
 import PaymentSuccessPage from '../views/PaymentSuccessPage.vue';
@@ -115,6 +116,11 @@ const routes = [
     name: 'Admin',
     component: AdminPage,
     beforeEnter: requirePlatformAdmin
+  },
+  {
+    path: '/suivi/:token',
+    name: 'ClientPortal',
+    component: ClientPortalPage
   },
   {
     path: '/settings',

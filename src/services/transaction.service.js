@@ -16,6 +16,7 @@ const normalizeCredit = (credit) => ({
   remainingAmount: credit.remainingAmount ?? Math.max((credit.amount || 0) - (credit.paidAmount || 0), 0),
   description: credit.description || 'Crédit client',
   dueDate: credit.dueDate,
+  clientPortalToken: credit.clientPortalToken,
   status: creditStatusToTransaction(credit.status),
   type: 'payment',
   createdAt: credit.createdAt,

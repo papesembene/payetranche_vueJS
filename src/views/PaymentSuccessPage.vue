@@ -39,13 +39,14 @@
         <!-- Actions -->
         <div class="space-y-3">
           <button
-            @click="goToDashboard"
+            @click="goBack"
             class="w-full bg-teal-500 hover:bg-teal-600 text-white font-medium py-3 px-4 rounded-lg transition-colors"
           >
-            Retour au tableau de bord
+            {{ paymentDetails.portal ? 'Retour au suivi' : 'Retour au tableau de bord' }}
           </button>
 
           <button
+            v-if="!paymentDetails.portal"
             @click="goToSettings"
             class="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium py-3 px-4 rounded-lg transition-colors"
           >
@@ -73,7 +74,8 @@ const paymentDetails = ref({
   token: '',
   status: '',
   ref: '',
-  amount: ''
+  amount: '',
+  portal: ''
 });
 
 const formatDate = (date) => {
@@ -86,7 +88,11 @@ const formatDate = (date) => {
   });
 };
 
-const goToDashboard = () => {
+const goBack = () => {
+  if (paymentDetails.value.portal) {
+    router.push(`/suivi/${paymentDetails.value.portal}`);
+    return;
+  }
   router.push('/dashboard');
 };
 
@@ -100,12 +106,14 @@ onMounted(async () => {
   const token = urlParams.get('token');
   const status = urlParams.get('status');
   const ref = urlParams.get('ref');
+  const portal = urlParams.get('portal');
 
   paymentDetails.value = {
     token: token || 'N/A',
     status: status || 'completed',
     ref: ref || '',
-    amount: urlParams.get('amount') || 'Confirmé'
+    amount: urlParams.get('amount') || 'Confirmé',
+    portal: portal || ''
   };
 });
 </script>

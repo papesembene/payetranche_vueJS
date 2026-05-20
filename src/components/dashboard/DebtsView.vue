@@ -1,7 +1,8 @@
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue';
-import { AlertTriangle, CalendarDays, Check, ChevronDown, Copy, CreditCard, ExternalLink, ListChecks, MessageCircle, Plus, Search, Smartphone, X } from 'lucide-vue-next';
+import { AlertTriangle, CalendarDays, Check, ChevronDown, Copy, CreditCard, ExternalLink, Link2, ListChecks, MessageCircle, Plus, Search, Smartphone, X } from 'lucide-vue-next';
 import { clientService } from '../../services/client.service.js';
+import { clientPortalService } from '../../services/clientPortal.service.js';
 import { installmentService } from '../../services/installment.service.js';
 import { paytechService } from '../../services/paytech.service.js';
 import { transactionService } from '../../services/transaction.service.js';
@@ -40,7 +41,8 @@ const generatedPaymentLink = ref({
   clientName: '',
   clientPhone: '',
   amount: 0,
-  label: ''
+  label: '',
+  kind: 'paytech'
 });
 
 const debtForm = ref({
@@ -101,6 +103,11 @@ const getPaymentLinkMessage = () => {
   const clientName = generatedPaymentLink.value.clientName || 'client';
   const amount = formatAmount(generatedPaymentLink.value.amount);
   const label = generatedPaymentLink.value.label || 'paiement';
+
+  if (generatedPaymentLink.value.kind === 'portal') {
+    return `Bonjour ${clientName}, voici votre lien de suivi PayTranche. Vous pouvez voir votre solde et payer la prochaine tranche ici: ${generatedPaymentLink.value.url}`;
+  }
+
   return `Bonjour ${clientName}, voici votre lien de ${label} PayTranche de ${amount}: ${generatedPaymentLink.value.url}`;
 };
 
@@ -110,15 +117,16 @@ const getWhatsAppUrl = () => {
   return phone ? `https://wa.me/${phone}?text=${text}` : `https://wa.me/?text=${text}`;
 };
 
-const showGeneratedPaymentLink = ({ request, debt, amount, label }) => {
+const showGeneratedPaymentLink = ({ request, debt, amount, label, kind = 'paytech' }) => {
   generatedPaymentLink.value = {
-    paymentRequestId: request.id,
+    paymentRequestId: request.id || '',
     debtId: debt.id,
-    url: request.redirectUrl,
+    url: request.redirectUrl || request.url,
     clientName: debt.clientName,
     clientPhone: debt.clientPhone,
     amount,
-    label
+    label,
+    kind
   };
   linkCopied.value = false;
   showPaymentLinkModal.value = true;
@@ -164,6 +172,24 @@ const openWhatsAppPaymentLink = () => {
 const openPaymentLink = () => {
   if (generatedPaymentLink.value.url) {
     window.open(generatedPaymentLink.value.url, '_blank', 'noopener,noreferrer');
+  }
+};
+
+const sendClientPortalLink = async (debt) => {
+  try {
+    actionLoadingId.value = `portal-${debt.id}`;
+    const link = await clientPortalService.getSellerPortalLink(debt.id);
+    showGeneratedPaymentLink({
+      request: { id: '', url: link.url },
+      debt,
+      amount: debt.remainingAmount,
+      label: 'suivi',
+      kind: 'portal'
+    });
+  } catch (error) {
+    alert(error.message || 'Impossible de créer le lien de suivi');
+  } finally {
+    actionLoadingId.value = null;
   }
 };
 
@@ -778,6 +804,14 @@ onMounted(() => {
                 <Smartphone :size="17" />
                 Envoyer lien de paiement
               </button>
+              <button
+                @click="sendClientPortalLink(debt)"
+                :disabled="actionLoadingId === `portal-${debt.id}`"
+                class="inline-flex items-center justify-center gap-2 rounded-lg border border-teal-200 px-4 py-3 text-sm font-semibold text-teal-700 hover:bg-teal-50 disabled:opacity-60"
+              >
+                <Link2 :size="17" />
+                Lien suivi client
+              </button>
               <p
                 v-if="!canSendPaytechLink(debt.remainingAmount)"
                 class="rounded-lg bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-700"
@@ -1153,7 +1187,9 @@ onMounted(() => {
     <div v-if="showPaymentLinkModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-end sm:items-center justify-center z-50 sm:p-4">
       <div class="bg-white rounded-t-2xl sm:rounded-2xl shadow-xl max-w-md w-full max-h-[92vh] overflow-y-auto">
         <div class="sticky top-0 bg-white flex items-center justify-between p-4 sm:p-6 border-b border-gray-200">
-          <h2 class="text-xl font-bold text-gray-900">Lien PayTech</h2>
+          <h2 class="text-xl font-bold text-gray-900">
+            {{ generatedPaymentLink.kind === 'portal' ? 'Lien de suivi' : 'Lien PayTech' }}
+          </h2>
           <button @click="closePaymentLinkModal" class="p-2 hover:bg-gray-100 rounded-lg">
             <X :size="20" class="text-gray-500" />
           </button>
@@ -1162,11 +1198,15 @@ onMounted(() => {
         <div class="p-4 sm:p-6 space-y-4">
           <div class="rounded-xl border border-gray-200 bg-gray-50 p-4">
             <p class="font-semibold text-gray-950">{{ generatedPaymentLink.clientName }}</p>
-            <p class="text-sm text-gray-600">{{ formatAmount(generatedPaymentLink.amount) }}</p>
+            <p class="text-sm text-gray-600">
+              {{ generatedPaymentLink.kind === 'portal' ? 'Solde actuel' : 'Montant' }} : {{ formatAmount(generatedPaymentLink.amount) }}
+            </p>
           </div>
 
           <div>
-            <label class="block text-sm font-semibold text-gray-700 mb-2">Lien</label>
+            <label class="block text-sm font-semibold text-gray-700 mb-2">
+              {{ generatedPaymentLink.kind === 'portal' ? 'Lien à garder par le client' : 'Lien' }}
+            </label>
             <input
               :value="generatedPaymentLink.url"
               readonly
@@ -1203,7 +1243,7 @@ onMounted(() => {
             </button>
 
             <button
-              v-if="isPaytechTestMode"
+              v-if="isPaytechTestMode && generatedPaymentLink.paymentRequestId"
               type="button"
               :disabled="simulateLoading"
               @click="simulatePaytechPayment"

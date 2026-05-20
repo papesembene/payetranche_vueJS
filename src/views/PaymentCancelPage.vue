@@ -11,10 +11,10 @@
       </p>
 
       <button
-        @click="router.push('/dashboard')"
+        @click="goBack"
         class="w-full bg-teal-500 hover:bg-teal-600 text-white font-medium py-3 px-4 rounded-lg transition-colors"
       >
-        Retour au tableau de bord
+        {{ portalToken ? 'Retour au suivi' : 'Retour au tableau de bord' }}
       </button>
     </div>
   </div>
@@ -25,4 +25,13 @@ import { useRouter } from 'vue-router';
 import { XCircle } from 'lucide-vue-next';
 
 const router = useRouter();
+const portalToken = new URLSearchParams(window.location.search).get('portal') || '';
+
+const goBack = () => {
+  if (portalToken) {
+    router.push(`/suivi/${portalToken}`);
+    return;
+  }
+  router.push('/dashboard');
+};
 </script>
