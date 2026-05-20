@@ -7,6 +7,7 @@ import {
   Copy,
   CreditCard,
   Crown,
+  Edit3,
   ExternalLink,
   Loader2,
   RefreshCw,
@@ -33,6 +34,17 @@ const activeTab = ref('tenants');
 const payoutSearch = ref('');
 const payoutStatus = ref('ALL');
 const copiedKey = ref('');
+const editingPayoutId = ref('');
+const manualPayoutId = ref('');
+const destinationForm = ref({
+  operator: 'WAVE',
+  phone: '',
+  holderName: ''
+});
+const manualForm = ref({
+  reference: '',
+  note: ''
+});
 
 const formatAmount = (amount) =>
   new Intl.NumberFormat('fr-FR').format(Number(amount || 0)) + ' FCFA';
@@ -70,7 +82,7 @@ const statusLabel = (status) => {
 
 const payoutStatusLabel = (status) => {
   const labels = {
-    PENDING: 'À recevoir',
+    PENDING: 'À verser',
     PROCESSING: 'En cours',
     SENT: 'Versé',
     FAILED: 'Échoué'
@@ -204,6 +216,58 @@ const sendPayout = async (payout) => {
     await loadAdmin();
   } catch (sendError) {
     error.value = sendError.response?.data?.message || sendError.message || 'Reversement impossible';
+  } finally {
+    actionLoadingId.value = null;
+  }
+};
+
+const openDestinationForm = (payout) => {
+  manualPayoutId.value = '';
+  editingPayoutId.value = payout.id;
+  destinationForm.value = {
+    operator: payout.operator || 'WAVE',
+    phone: payout.phone || '',
+    holderName: payout.holderName || ''
+  };
+};
+
+const openManualForm = (payout) => {
+  editingPayoutId.value = '';
+  manualPayoutId.value = payout.id;
+  manualForm.value = {
+    reference: '',
+    note: ''
+  };
+};
+
+const closePayoutForms = () => {
+  editingPayoutId.value = '';
+  manualPayoutId.value = '';
+};
+
+const savePayoutDestination = async (payout) => {
+  actionLoadingId.value = `destination-${payout.id}`;
+  error.value = '';
+  try {
+    await adminService.updatePayoutDestination(payout.id, destinationForm.value);
+    closePayoutForms();
+    await loadPayouts();
+  } catch (destinationError) {
+    error.value = destinationError.response?.data?.message || destinationError.message || 'Compte vendeur non modifié';
+  } finally {
+    actionLoadingId.value = null;
+  }
+};
+
+const markPayoutManual = async (payout) => {
+  actionLoadingId.value = `manual-${payout.id}`;
+  error.value = '';
+  try {
+    await adminService.markPayoutManual(payout.id, manualForm.value);
+    closePayoutForms();
+    await loadAdmin();
+  } catch (manualError) {
+    error.value = manualError.response?.data?.message || manualError.message || 'Paiement manuel non enregistré';
   } finally {
     actionLoadingId.value = null;
   }
@@ -443,7 +507,7 @@ onMounted(loadAdmin);
               @change="loadPayouts"
             >
               <option value="ALL">Tous les statuts</option>
-              <option value="PENDING">À recevoir</option>
+              <option value="PENDING">À verser</option>
               <option value="PROCESSING">En cours</option>
               <option value="SENT">Versé</option>
               <option value="FAILED">Échoué</option>
@@ -504,7 +568,7 @@ onMounted(loadAdmin);
                 <p class="text-xs text-slate-400">{{ formatDate(payout.payment?.paidAt || payout.createdAt) }}</p>
               </div>
 
-              <div class="grid grid-cols-2 gap-2 lg:min-w-56">
+              <div class="grid grid-cols-2 gap-2 lg:min-w-64">
                 <button
                   class="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-bold text-slate-700"
                   :disabled="actionLoadingId === `sync-${payout.id}`"
@@ -516,12 +580,28 @@ onMounted(loadAdmin);
                 </button>
                 <button
                   class="inline-flex items-center justify-center gap-2 rounded-lg bg-teal-600 px-3 py-2 text-sm font-bold text-white disabled:opacity-50"
-                  :disabled="payout.status === 'SENT' || actionLoadingId === `send-${payout.id}`"
+                  :disabled="payout.status === 'SENT' || payout.status === 'PROCESSING' || actionLoadingId === `send-${payout.id}`"
                   @click="sendPayout(payout)"
                 >
                   <Loader2 v-if="actionLoadingId === `send-${payout.id}`" :size="15" class="animate-spin" />
                   <Send v-else :size="15" />
                   Relancer
+                </button>
+                <button
+                  class="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-bold text-slate-700 disabled:opacity-50"
+                  :disabled="payout.status === 'SENT' || payout.status === 'PROCESSING'"
+                  @click="openDestinationForm(payout)"
+                >
+                  <Edit3 :size="15" />
+                  Compte
+                </button>
+                <button
+                  class="inline-flex items-center justify-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-bold text-emerald-700 disabled:opacity-50"
+                  :disabled="payout.status === 'SENT' || payout.status === 'PROCESSING'"
+                  @click="openManualForm(payout)"
+                >
+                  <CheckCircle :size="15" />
+                  Manuel
                 </button>
               </div>
             </div>
@@ -529,6 +609,109 @@ onMounted(loadAdmin);
             <div v-if="payout.failureReason" class="mt-3 rounded-lg border border-red-100 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">
               {{ payout.failureReason }}
             </div>
+
+            <div v-if="payout.manualReference" class="mt-3 rounded-lg border border-emerald-100 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-800">
+              Payé manuellement · Réf: {{ payout.manualReference }}
+              <span v-if="payout.manuallyMarkedBy"> · {{ payout.manuallyMarkedBy }}</span>
+              <span v-if="payout.manuallyMarkedAt"> · {{ formatDate(payout.manuallyMarkedAt) }}</span>
+              <p v-if="payout.manualNote" class="mt-1 text-emerald-700">{{ payout.manualNote }}</p>
+            </div>
+
+            <form
+              v-if="editingPayoutId === payout.id"
+              class="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3"
+              @submit.prevent="savePayoutDestination(payout)"
+            >
+              <div class="grid gap-3 md:grid-cols-[180px_1fr_1fr_auto] md:items-end">
+                <label class="grid gap-1 text-sm font-bold text-slate-700">
+                  Opérateur
+                  <select
+                    v-model="destinationForm.operator"
+                    class="rounded-lg border border-slate-300 px-3 py-2 text-base outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-100"
+                  >
+                    <option value="WAVE">Wave</option>
+                    <option value="ORANGE_MONEY">Orange Money</option>
+                  </select>
+                </label>
+                <label class="grid gap-1 text-sm font-bold text-slate-700">
+                  Numéro
+                  <input
+                    v-model="destinationForm.phone"
+                    type="tel"
+                    class="rounded-lg border border-slate-300 px-3 py-2 text-base outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-100"
+                    placeholder="77 123 45 67"
+                    required
+                  />
+                </label>
+                <label class="grid gap-1 text-sm font-bold text-slate-700">
+                  Nom du compte
+                  <input
+                    v-model="destinationForm.holderName"
+                    class="rounded-lg border border-slate-300 px-3 py-2 text-base outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-100"
+                    placeholder="Nom affiché"
+                    required
+                  />
+                </label>
+                <div class="grid grid-cols-2 gap-2">
+                  <button
+                    type="submit"
+                    class="rounded-lg bg-teal-600 px-4 py-2 text-sm font-black text-white disabled:opacity-50"
+                    :disabled="actionLoadingId === `destination-${payout.id}`"
+                  >
+                    OK
+                  </button>
+                  <button
+                    type="button"
+                    class="rounded-lg border border-slate-200 px-4 py-2 text-sm font-black text-slate-700"
+                    @click="closePayoutForms"
+                  >
+                    Annuler
+                  </button>
+                </div>
+              </div>
+            </form>
+
+            <form
+              v-if="manualPayoutId === payout.id"
+              class="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3"
+              @submit.prevent="markPayoutManual(payout)"
+            >
+              <div class="grid gap-3 md:grid-cols-[1fr_1.2fr_auto] md:items-end">
+                <label class="grid gap-1 text-sm font-bold text-emerald-800">
+                  Référence paiement
+                  <input
+                    v-model="manualForm.reference"
+                    class="rounded-lg border border-emerald-200 px-3 py-2 text-base outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
+                    placeholder="Ex: PayTech direct, reçu Wave..."
+                    required
+                  />
+                </label>
+                <label class="grid gap-1 text-sm font-bold text-emerald-800">
+                  Note
+                  <input
+                    v-model="manualForm.note"
+                    class="rounded-lg border border-emerald-200 px-3 py-2 text-base outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
+                    placeholder="Optionnel"
+                  />
+                </label>
+                <div class="grid grid-cols-2 gap-2">
+                  <button
+                    type="submit"
+                    class="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-black text-white disabled:opacity-50"
+                    :disabled="actionLoadingId === `manual-${payout.id}`"
+                  >
+                    Payé
+                  </button>
+                  <button
+                    type="button"
+                    class="rounded-lg border border-emerald-200 bg-white px-4 py-2 text-sm font-black text-emerald-700"
+                    @click="closePayoutForms"
+                  >
+                    Annuler
+                  </button>
+                </div>
+              </div>
+            </form>
           </article>
         </template>
       </section>

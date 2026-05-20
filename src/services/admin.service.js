@@ -54,6 +54,16 @@ class AdminService {
     const response = await http.post(`/admin/payouts/${payoutId}/send`);
     return response.data.data;
   }
+
+  async updatePayoutDestination(payoutId, destination) {
+    const response = await http.patch(`/admin/payouts/${payoutId}/destination`, destination);
+    return response.data.data;
+  }
+
+  async markPayoutManual(payoutId, data) {
+    const response = await http.post(`/admin/payouts/${payoutId}/manual-paid`, data);
+    return response.data.data;
+  }
 }
 
 export const adminService = new AdminService();
