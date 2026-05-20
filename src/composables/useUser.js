@@ -179,6 +179,72 @@ const login = async (credentials) => {
   }
 };
 
+const socialLogin = async (provider, options = {}) => {
+  loading.value = true;
+  try {
+    const result = await authService.loginWithSocial(provider, options);
+    if (result.success && !result.pendingRedirect) {
+      user.value = result.user;
+      isAuthenticated.value = true;
+      persistUserData();
+      localStorage.setItem('auth_user', JSON.stringify(result.user));
+      SessionService.saveSession(result.user);
+      const userStore = useUserStore();
+      userStore.user = result.user;
+      userStore.isAuthenticated = true;
+    }
+    return result;
+  } catch (error) {
+    return { success: false, error: error.message };
+  } finally {
+    loading.value = false;
+  }
+};
+
+const googleCredentialLogin = async (idToken, options = {}) => {
+  loading.value = true;
+  try {
+    const result = await authService.loginWithGoogleCredential(idToken, options);
+    if (result.success) {
+      user.value = result.user;
+      isAuthenticated.value = true;
+      persistUserData();
+      localStorage.setItem('auth_user', JSON.stringify(result.user));
+      SessionService.saveSession(result.user);
+      const userStore = useUserStore();
+      userStore.user = result.user;
+      userStore.isAuthenticated = true;
+    }
+    return result;
+  } catch (error) {
+    return { success: false, error: error.message };
+  } finally {
+    loading.value = false;
+  }
+};
+
+const completeSocialLogin = async () => {
+  loading.value = true;
+  try {
+    const result = await authService.completeSocialRedirect();
+    if (result.success) {
+      user.value = result.user;
+      isAuthenticated.value = true;
+      persistUserData();
+      localStorage.setItem('auth_user', JSON.stringify(result.user));
+      SessionService.saveSession(result.user);
+      const userStore = useUserStore();
+      userStore.user = result.user;
+      userStore.isAuthenticated = true;
+    }
+    return result;
+  } catch (error) {
+    return { success: false, error: error.message };
+  } finally {
+    loading.value = false;
+  }
+};
+
 const logout = async () => {
   loading.value = true;
   try {
@@ -568,6 +634,9 @@ export function useUser() {
     // Actions
     register,
     login,
+    socialLogin,
+    googleCredentialLogin,
+    completeSocialLogin,
     logout,
     loadUser,
     loadPlans,

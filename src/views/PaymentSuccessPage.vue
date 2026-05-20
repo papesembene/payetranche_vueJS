@@ -9,17 +9,17 @@
         </div>
 
         <!-- Title -->
-        <h1 class="text-2xl font-bold text-gray-900 mb-2">Paiement Réussi !</h1>
+        <h1 class="text-2xl font-bold text-gray-900 mb-2">Paiement réussi</h1>
         <p class="text-gray-600 mb-6">
-          Votre abonnement a été renouvelé avec succès.
+          Le paiement a été reçu. La dette sera mise à jour automatiquement après confirmation PayTech.
         </p>
 
         <!-- Payment Details -->
         <div class="bg-gray-50 rounded-lg p-4 mb-6 text-left">
           <div class="space-y-2">
             <div class="flex justify-between">
-              <span class="text-sm text-gray-600">Plan :</span>
-              <span class="text-sm font-medium">{{ paymentDetails.plan || 'Essentiel' }}</span>
+              <span class="text-sm text-gray-600">Référence :</span>
+              <span class="text-sm font-medium">{{ paymentDetails.ref || paymentDetails.token || 'N/A' }}</span>
             </div>
             <div class="flex justify-between">
               <span class="text-sm text-gray-600">Montant :</span>
@@ -55,7 +55,7 @@
 
         <!-- Footer -->
         <p class="text-xs text-gray-500 mt-6">
-          Sécurisé par PayDunya • Transaction #{{ paymentDetails.token || 'N/A' }}
+          Sécurisé par PayTech
         </p>
       </div>
     </div>
@@ -66,15 +66,13 @@
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { CheckCircle } from 'lucide-vue-next';
-import { useUser } from '../composables/useUser.js';
 
 const router = useRouter();
-const { user, currentPlan, updateSubscriptionLocally } = useUser();
 
 const paymentDetails = ref({
   token: '',
   status: '',
-  plan: '',
+  ref: '',
   amount: ''
 });
 
@@ -101,30 +99,13 @@ onMounted(async () => {
   const urlParams = new URLSearchParams(window.location.search);
   const token = urlParams.get('token');
   const status = urlParams.get('status');
+  const ref = urlParams.get('ref');
 
   paymentDetails.value = {
     token: token || 'N/A',
     status: status || 'completed',
-    plan: currentPlan.value?.name || 'Essentiel',
-    amount: currentPlan.value?.price ? `${currentPlan.value.price} ${currentPlan.value.currency}` : '5 000 FCFA'
+    ref: ref || '',
+    amount: urlParams.get('amount') || 'Confirmé'
   };
-
-  // Mettre à jour l'abonnement si le paiement est réussi
-  if (status === 'completed') {
-    try {
-      // Mettre à jour localement la date d'expiration
-      const newExpiryDate = new Date();
-      newExpiryDate.setMonth(newExpiryDate.getMonth() + 1); // +1 mois
-
-      updateSubscriptionLocally({
-        currentPeriodEnd: newExpiryDate.toISOString().split('T')[0],
-        status: 'active'
-      });
-
-      console.log('Abonnement renouvelé avec succès jusqu\'au:', newExpiryDate.toISOString().split('T')[0]);
-    } catch (error) {
-      console.error('Erreur lors de la mise à jour de l\'abonnement:', error);
-    }
-  }
 });
 </script>

@@ -1,12 +1,9 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue';
-import { Search, ChevronDown, Plus, Users, Download, FileText, FileSpreadsheet } from 'lucide-vue-next';
+import { Search, ChevronDown, Users, Download, FileText, FileSpreadsheet } from 'lucide-vue-next';
 import ClientCard from './ClientCard.vue';
-import ClientForm from './ClientForm.vue';
-import PaymentForm from './PaymentForm.vue';
 import { clientService } from '../../services/client.service.js';
 import { transactionService } from '../../services/transaction.service.js';
-import { useUserStore } from '../../stores/user.js';
 import { exportClientsToExcel, generateReportPDF } from '../../utils/export.js';
 
 const props = defineProps({
@@ -16,18 +13,13 @@ const props = defineProps({
   }
 });
 
-const userStore = useUserStore();
-
 // Déclarer les ref AVANT les watch
 const searchQuery = ref('');
 const selectedStatus = ref('Tous les statuts');
 const clients = ref([]);
 const transactions = ref([]);
 const loading = ref(false);
-const showForm = ref(false);
 const showExportMenu = ref(false);
-const showPaymentForm = ref(false);
-const selectedClientForPayment = ref(null);
 const currentPage = ref(1);
 const itemsPerPage = ref(12); // 3x4 grid
 
@@ -43,8 +35,6 @@ watch(() => searchQuery.value, () => {
 watch(() => selectedStatus.value, () => {
   currentPage.value = 1;
 });
-
-const canAddClient = computed(() => userStore.canAddClient);
 
 const loadData = async () => {
   if (loading.value) return; // Prevent multiple simultaneous calls
@@ -67,18 +57,29 @@ const loadData = async () => {
 };
 
 // Calculer les données pour chaque client
-  const clientsWithStats = computed(() => {
-    return clients.value.map(client => {
+const clientsWithStats = computed(() => {
+  const isOverdue = (transaction) => {
+    if (transaction.status !== 'pending' || !transaction.dueDate) return false;
+    const dueDate = new Date(transaction.dueDate);
+    if (Number.isNaN(dueDate.getTime())) return false;
+    return dueDate < new Date();
+  };
+
+  return clients.value.map(client => {
       const clientTransactions = transactions.value.filter(t => t.clientId === client.id);
-      const totalPaidFromTransactions = clientTransactions
-        .filter(t => t.status === 'completed')
-        .reduce((sum, t) => sum + (t.amount || 0), 0);
+      const creditTransactions = clientTransactions.filter(t => t.backendType === 'credit');
+      const totalPaidFromTransactions = creditTransactions
+        .reduce((sum, t) => sum + (t.paidAmount || 0), 0);
 
       // Ne pas ajouter l'acompte deux fois (il est déjà dans les transactions)
       const totalPaid = totalPaidFromTransactions;
 
-      const totalDebt = client.totalDebt || 0;
-      const remaining = totalDebt - totalPaid;
+      const totalDebt = creditTransactions.length > 0
+        ? creditTransactions.reduce((sum, t) => sum + (t.originalAmount || t.amount || 0), 0)
+        : client.totalDebt || 0;
+      const remaining = creditTransactions.length > 0
+        ? creditTransactions.reduce((sum, t) => sum + (t.remainingAmount || 0), 0)
+        : Math.max(totalDebt - totalPaid, 0);
       const progress = totalDebt > 0 ? Math.round((totalPaid / totalDebt) * 100) : 0;
 
       // Déterminer le statut
@@ -88,7 +89,7 @@ const loadData = async () => {
       if (remaining <= 0) {
         status = 'Payé';
         statusColor = 'bg-green-100 text-green-700';
-      } else if (clientTransactions.some(t => t.status === 'pending' && new Date(t.dueDate) < new Date())) {
+      } else if (clientTransactions.some(isOverdue)) {
         status = 'En retard';
         statusColor = 'bg-red-100 text-red-700';
       }
@@ -97,14 +98,17 @@ const loadData = async () => {
         id: client.id,
         name: client.name,
         phone: client.phone,
-        address: client.address,
+        address: client.address || 'Non renseignée',
         total: formatAmount(totalDebt),
         paid: formatAmount(totalPaid),
         remaining: formatAmount(remaining),
+        totalDebt,
+        paidAmount: totalPaid,
+        remainingAmount: remaining,
         progress,
         status,
         statusColor,
-        historyCount: clientTransactions.length,
+        historyCount: creditTransactions.length,
         acompte: formatAmount(client.acompte || 0) // Afficher l'acompte séparément
       };
     });
@@ -118,7 +122,7 @@ const filteredClients = computed(() => {
   if (searchQuery.value) {
     filtered = filtered.filter(client =>
       client.name.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
-      client.address.toLowerCase().includes(searchQuery.value.toLowerCase())
+      (client.address || '').toLowerCase().includes(searchQuery.value.toLowerCase())
     );
   }
 
@@ -132,42 +136,6 @@ const filteredClients = computed(() => {
 
 const formatAmount = (amount) => {
   return new Intl.NumberFormat('fr-FR').format(amount) + ' FCFA';
-};
-
-const openAddClientForm = () => {
-  showForm.value = true;
-};
-
-const closeForm = () => {
-  showForm.value = false;
-};
-
-const onClientSaved = () => {
-  loadData(); // Reload data after saving
-};
-
-const onPaymentAdded = () => {
-  loadData(); // Reload data after payment addition
-};
-
-const onAddPayment = (client) => {
-  // Transformer les données du client pour correspondre au format attendu par PaymentForm
-  const transformedClient = {
-    id: client.id,
-    name: client.name,
-    phone: client.phone,
-    address: client.address,
-    // Normaliser les noms de propriétés : totalDebt -> total, paid
-    total: client.total || client.totalDebt || 0,
-    paid: client.paid || 0
-  };
-  selectedClientForPayment.value = transformedClient;
-  showPaymentForm.value = true;
-};
-
-const closePaymentForm = () => {
-  showPaymentForm.value = false;
-  selectedClientForPayment.value = null;
 };
 
 // Export functions
@@ -264,23 +232,6 @@ onMounted(() => {
             </button>
           </div>
         </div>
-
-        <!-- Add Client Button -->
-        <button
-          @click="openAddClientForm"
-          :disabled="!canAddClient"
-          :class="[
-            'flex-1 sm:flex-initial flex items-center justify-center gap-2 px-5 py-3 font-semibold rounded-xl transition-colors shadow-md',
-            !canAddClient
-              ? 'bg-gray-400 cursor-not-allowed text-gray-200'
-              : 'bg-teal-500 hover:bg-teal-600 text-white'
-          ]"
-          :title="!canAddClient ? 'Vous ne pouvez pas ajouter de clients. Vérifiez votre abonnement ou vos limites.' : ''"
-        >
-          <Plus :size="20" />
-          <span class="hidden sm:inline">Nouveau client</span>
-          <span class="sm:hidden">Nouveau</span>
-        </button>
       </div>
     </div>
 
@@ -311,7 +262,6 @@ onMounted(() => {
         v-for="client in filteredClients"
         :key="client.id"
         :client="client"
-        @payment-added="onPaymentAdded"
       />
     </div>
 
@@ -322,23 +272,8 @@ onMounted(() => {
       </div>
       <h3 class="text-lg font-medium text-gray-900 mb-2">Aucun client trouvé</h3>
       <p class="text-gray-600">
-        {{ searchQuery || selectedStatus !== 'Tous les statuts' ? 'Essayez de modifier vos filtres' : 'Commencez par ajouter votre premier client' }}
+        {{ searchQuery || selectedStatus !== 'Tous les statuts' ? 'Essayez de modifier vos filtres' : 'Créez une vente à crédit pour ajouter automatiquement un client' }}
       </p>
     </div>
-
-    <!-- Client Form Modal -->
-    <ClientForm
-      :show="showForm"
-      @close="closeForm"
-      @saved="onClientSaved"
-    />
-
-    <!-- Payment Form Modal -->
-    <PaymentForm
-      :show="showPaymentForm"
-      :client="selectedClientForPayment"
-      @close="closePaymentForm"
-      @saved="onPaymentAdded"
-    />
   </div>
 </template>

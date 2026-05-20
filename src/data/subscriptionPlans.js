@@ -2,23 +2,13 @@
 export const subscriptionPlans = {
   free: {
     id: 'free',
-    name: 'Essai gratuit',
+    name: 'Gratuit',
     price: 0,
     currency: 'FCFA',
     billing: 'mensuel',
-    limits: { maxClients: 10, maxPayments: 50, maxPaymentAmount: 100000 },
+    limits: { maxClients: 5, maxPayments: -1, maxPaymentAmount: -1 },
     features: ['basic_dashboard', 'client_management', 'payment_tracking'],
-    description: 'Essai gratuit de 14 jours'
-  },
-  essential: {
-    id: 'essential',
-    name: 'Essentiel',
-    price: 5000,
-    currency: 'FCFA',
-    billing: 'mensuel',
-    limits: { maxClients: 50, maxPayments: 500, maxPaymentAmount: 500000 },
-    features: ['basic_dashboard', 'client_management', 'payment_tracking', 'payment_reminders', 'basic_reports', 'email_support'],
-    description: 'Pour les petits commerçants'
+    description: 'Jusqu’à 5 clients'
   },
   pro: {
     id: 'pro',
@@ -26,9 +16,9 @@ export const subscriptionPlans = {
     price: 15000,
     currency: 'FCFA',
     billing: 'mensuel',
-    limits: { maxClients: 200, maxPayments: 2000, maxPaymentAmount: 2000000 },
-    features: ['all_essential', 'advanced_analytics', 'api_access', 'priority_support', 'custom_reminders', 'export_data'],
-    description: 'Pour les entreprises en croissance'
+    limits: { maxClients: -1, maxPayments: -1, maxPaymentAmount: -1 },
+    features: ['basic_dashboard', 'client_management', 'payment_tracking', 'advanced_analytics', 'payment_reminders', 'export_data'],
+    description: 'Clients, crédits et paiements illimités'
   },
   enterprise: {
     id: 'enterprise',
@@ -37,7 +27,7 @@ export const subscriptionPlans = {
     currency: 'FCFA',
     billing: 'mensuel',
     limits: { maxClients: -1, maxPayments: -1, maxPaymentAmount: -1 },
-    features: ['all_pro', 'custom_integrations', 'white_label', 'dedicated_support', 'multi_user', 'advanced_security'],
+    features: ['all_pro', 'custom_integrations', 'white_label', 'dedicated_support', 'multi_user', 'advanced_security', 'advanced_analytics', 'payment_tracking'],
     description: 'Pour les grandes organisations'
   }
 };

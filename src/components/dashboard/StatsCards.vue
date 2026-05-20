@@ -1,9 +1,7 @@
 <script setup>
 import { ref, onMounted, onUnmounted, watch } from 'vue';
-import { DollarSign, Check, AlertTriangle, Users, Download, FileText, RefreshCw } from 'lucide-vue-next';
-import { clientService } from '../../services/client.service.js';
-import { transactionService } from '../../services/transaction.service.js';
-import { generateReportPDF } from '../../utils/export.js';
+import { DollarSign, Check, AlertTriangle, Users } from 'lucide-vue-next';
+import { analyticsService } from '../../services/analytics.service.js';
 
 const props = defineProps({
   refresh: {
@@ -52,35 +50,17 @@ const loadStats = async () => {
   try {
     isRefreshing.value = true;
 
-    // Charger les données en parallèle
-    const [clients, transactions, clientStats, transactionStats] = await Promise.all([
-      clientService.getClients(),
-      transactionService.getTransactions(),
-      clientService.getClientStats(),
-      transactionService.getTransactionStats()
-    ]);
-
-    // Calculer le total à recevoir : dette totale des clients - acompte versé
-    const totalDebt = clients.reduce((sum, c) => sum + (c.totalDebt || 0), 0);
-    const totalAcompte = clients.reduce((sum, c) => sum + (c.acompte || 0), 0);
-    const totalReceivable = Math.max(0, totalDebt - totalAcompte);
-
-    const totalFromTransactions = transactions
-      .filter(t => t.status === 'completed')
-      .reduce((sum, t) => sum + (t.amount || 0), 0);
-
-    // Le total reçu inclut l'acompte et les transactions complétées
-    const totalReceived = totalFromTransactions + totalAcompte;
-
-    const overdueAmount = transactions
-      .filter(t => t.status === 'pending' && new Date(t.dueDate) < new Date())
-      .reduce((sum, t) => sum + (t.amount || 0), 0);
+    const metrics = await analyticsService.getDashboardMetrics();
+    const totalReceivable = metrics.remainingToRecover || 0;
+    const totalReceived = metrics.totalRecovered || 0;
+    const overdueAmount = metrics.overdueAmount || 0;
+    const activeClients = metrics.clientsWithDebtCount ?? metrics.activeClientsCount ?? 0;
 
     const currentStats = {
       totalReceivable,
       totalReceived,
       overdueAmount,
-      activeClients: clientStats.active
+      activeClients
     };
 
     // Only update if values have changed to avoid unnecessary re-renders
@@ -91,10 +71,9 @@ const loadStats = async () => {
     if (hasChanges || stats.value.length === 0) {
       stats.value = [
         {
-          title: 'Total à recevoir',
+          title: 'Reste à récupérer',
           value: formatAmount(totalReceivable),
-          change: calculateChange(totalReceivable, prevStats.value.totalReceivable),
-          isPositive: totalReceivable >= prevStats.value.totalReceivable,
+          helper: 'Argent encore dû par les clients',
           icon: DollarSign,
           bgColor: 'bg-teal-100',
           iconColor: 'text-teal-600'
@@ -102,8 +81,7 @@ const loadStats = async () => {
         {
           title: 'Paiements reçus',
           value: formatAmount(totalReceived),
-          change: calculateChange(totalReceived, prevStats.value.totalReceived),
-          isPositive: totalReceived >= prevStats.value.totalReceived,
+          helper: 'Somme déjà encaissée',
           icon: Check,
           bgColor: 'bg-green-100',
           iconColor: 'text-green-600'
@@ -111,20 +89,18 @@ const loadStats = async () => {
         {
           title: 'En retard',
           value: formatAmount(overdueAmount),
-          change: calculateChange(overdueAmount, prevStats.value.overdueAmount),
-          isPositive: overdueAmount <= prevStats.value.overdueAmount, // Less overdue is positive
+          helper: 'À relancer en priorité',
           icon: AlertTriangle,
           bgColor: 'bg-red-100',
           iconColor: 'text-red-600'
         },
         {
-          title: 'Clients actifs',
-          value: clientStats.active.toString(),
-          change: calculateChange(clientStats.active, prevStats.value.activeClients),
-          isPositive: clientStats.active >= prevStats.value.activeClients,
+          title: 'Clients avec dette',
+          value: activeClients.toString(),
+          helper: 'Personnes à suivre',
           icon: Users,
-          bgColor: 'bg-yellow-100',
-          iconColor: 'text-yellow-600'
+          bgColor: 'bg-amber-100',
+          iconColor: 'text-amber-600'
         }
       ];
     }
@@ -141,13 +117,6 @@ const loadStats = async () => {
   }
 };
 
-const calculateChange = (current, previous) => {
-  if (previous === 0) return current > 0 ? '+100%' : '0%';
-  const change = ((current - previous) / previous) * 100;
-  const sign = change >= 0 ? '+' : '';
-  return `${sign}${change.toFixed(0)}%`;
-};
-
 const formatAmount = (amount) => {
   if (amount >= 1000000) {
     return `${(amount / 1000000).toFixed(1)}M FCFA`;
@@ -155,22 +124,6 @@ const formatAmount = (amount) => {
     return `${(amount / 1000).toFixed(0)}K FCFA`;
   }
   return `${amount} FCFA`;
-};
-
-// Export report
-const exportStatsReport = () => {
-  if (stats.value.length === 0) {
-    alert('Aucune statistique à exporter');
-    return;
-  }
-
-  const reportData = stats.value.map(stat => ({
-    'Indicateur': stat.title,
-    'Valeur': stat.value,
-    'Évolution': stat.change
-  }));
-
-  generateReportPDF('Rapport de Statistiques', reportData, `statistiques-${new Date().toISOString().split('T')[0]}`);
 };
 
 onMounted(() => {
@@ -189,8 +142,8 @@ onUnmounted(() => {
 
 <template>
   <!-- Loading State -->
-  <div v-if="loading" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-    <div v-for="i in 4" :key="i" class="bg-white rounded-xl p-6 shadow-sm">
+  <div v-if="loading" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+    <div v-for="i in 4" :key="i" class="bg-white rounded-lg border border-gray-200 p-5">
       <div class="animate-pulse">
         <div class="flex items-start justify-between mb-4">
           <div class="w-14 h-14 bg-gray-200 rounded-xl"></div>
@@ -204,47 +157,20 @@ onUnmounted(() => {
 
   <!-- Loaded State -->
   <div v-else>
-    <!-- Export Button and Refresh -->
-    <div class="flex justify-between items-center mb-4">
-      <button
-        @click="loadStats"
-        :disabled="isRefreshing"
-        class="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-lg transition-colors"
-      >
-        <RefreshCw :size="16" :class="{'animate-spin': isRefreshing}" />
-        <span class="hidden sm:inline">{{ isRefreshing ? 'Rafraîchissement...' : 'Rafraîchir' }}</span>
-        <span class="sm:hidden">{{ isRefreshing ? '...' : 'Refresh' }}</span>
-      </button>
-      <button
-        @click="exportStatsReport"
-        class="flex items-center justify-center gap-2 px-4 py-2 bg-teal-500 hover:bg-teal-600 text-white font-medium rounded-lg transition-colors shadow-sm"
-      >
-        <FileText :size="16" />
-        <span class="hidden sm:inline">Exporter</span>
-      </button>
-    </div>
-
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-8">
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
       <div
         v-for="(stat, index) in stats"
         :key="index"
-        class="bg-white rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow"
+        class="bg-white rounded-lg border border-gray-200 p-5"
       >
-        <div class="flex items-start justify-between mb-4">
-          <div :class="['w-14 h-14 rounded-xl flex items-center justify-center', stat.bgColor]">
-            <component :is="stat.icon" :size="24" :class="stat.iconColor" />
+        <div class="flex items-center gap-3 mb-3">
+          <div :class="['w-11 h-11 rounded-lg flex items-center justify-center', stat.bgColor]">
+            <component :is="stat.icon" :size="22" :class="stat.iconColor" />
           </div>
-          <span
-            :class="[
-              'text-sm font-semibold',
-              stat.isPositive ? 'text-green-600' : 'text-red-600'
-            ]"
-          >
-            {{ stat.change }}
-          </span>
+          <p class="text-sm font-semibold text-gray-600">{{ stat.title }}</p>
         </div>
-        <h3 class="text-2xl font-bold text-gray-900 mb-1">{{ stat.value }}</h3>
-        <p class="text-sm text-gray-600">{{ stat.title }}</p>
+        <h3 class="text-2xl font-bold text-gray-950">{{ stat.value }}</h3>
+        <p class="text-sm text-gray-500 mt-1">{{ stat.helper }}</p>
       </div>
     </div>
   </div>

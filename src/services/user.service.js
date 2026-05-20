@@ -1,209 +1,91 @@
-import { auth } from '../firebase.js';
-import { firestoreService } from './firestore.service.js';
+import { http } from './http.js';
 
-/**
- * Service de gestion des utilisateurs avec Firestore
- * Responsabilités : profil utilisateur, préférences, statistiques
- */
+const backendPlanToFrontend = (plan) => {
+  const plans = {
+    GRATUIT: 'free',
+    PRO: 'pro',
+    ENTREPRISE: 'enterprise'
+  };
+  return plans[plan] || 'free';
+};
+
+const normalizeUser = (user) => ({
+  ...user,
+  phone: user.phone || (user.email?.endsWith('@paytranche.local') ? user.email.replace('@paytranche.local', '') : ''),
+  onboardingCompleted: Boolean(user.onboardingCompleted),
+  avatar: user.name?.charAt(0)?.toUpperCase() || 'U',
+  subscription: {
+    id: `sub_${user.id}`,
+    plan: backendPlanToFrontend(user.plan),
+    status: 'active',
+    currentPeriodStart: user.createdAt || new Date().toISOString(),
+    currentPeriodEnd: user.planExpiresAt || null,
+    cancelAtPeriodEnd: false,
+    trialEnd: null
+  },
+  usage: user.usage || {
+    clients: 0,
+    payments: 0,
+    totalAmount: 0
+  }
+});
+
 class UserService {
-  /**
-   * Récupération du profil utilisateur complet
-   * @param {string} userId - ID de l'utilisateur (optionnel, sinon utilisateur actuel)
-   * @returns {Promise<Object>} - Données utilisateur avec abonnement et usage
-   */
-  async getProfile(userId = null) {
+  async getProfile() {
     try {
-      const targetUserId = userId || this._getCurrentUserId();
-
-      if (!targetUserId) {
-        throw new Error('Utilisateur non authentifié');
-      }
-
-      return await firestoreService.getDocument('users', targetUserId);
+      const response = await http.get('/auth/me');
+      const user = normalizeUser(response.data.data.user);
+      localStorage.setItem('auth_user', JSON.stringify(user));
+      return user;
     } catch (error) {
-      throw new Error('Erreur lors du chargement du profil');
+      const cached = localStorage.getItem('auth_user');
+      if (cached) return JSON.parse(cached);
+      throw new Error(error.response?.data?.message || 'Erreur lors du chargement du profil');
     }
   }
 
-  /**
-   * Récupération de l'ID utilisateur actuel depuis Firebase Auth
-   * @returns {string|null} - ID utilisateur ou null
-   */
-  _getCurrentUserId() {
-    try {
-      const userData = localStorage.getItem('auth_user');
-      if (userData) {
-        const user = JSON.parse(userData);
-        return user.id;
-      }
-      return null;
-    } catch (error) {
-      return null;
-    }
-  }
-
-  /**
-   * Mise à jour du profil utilisateur
-   * @param {Object} profileData - Données à mettre à jour
-   * @returns {Promise<Object>} - Profil mis à jour
-   */
   async updateProfile(profileData) {
-    try {
-      const userId = this._getCurrentUserId();
-      if (!userId) {
-        throw new Error('Utilisateur non authentifié');
-      }
-
-      return await firestoreService.updateDocument('users', userId, profileData);
-    } catch (error) {
-      throw new Error('Erreur lors de la mise à jour du profil');
-    }
+    const current = await this.getProfile();
+    const updated = { ...current, ...profileData };
+    localStorage.setItem('auth_user', JSON.stringify(updated));
+    localStorage.setItem('user_data', JSON.stringify(updated));
+    return updated;
   }
 
-  /**
-   * Mise à jour des statistiques d'usage
-   * @param {Object} usageData - Données d'usage à mettre à jour
-   * @returns {Promise<Object>} - Profil mis à jour
-   */
   async updateUsage(usageData) {
-    try {
-      const userId = this._getCurrentUserId();
-      if (!userId) {
-        throw new Error('Utilisateur non authentifié');
-      }
-
-      const userProfile = await this.getProfile(userId);
-      const updatedUsage = {
-        ...userProfile.usage,
-        ...usageData
-      };
-
-      return await firestoreService.updateDocument('users', userId, { usage: updatedUsage });
-    } catch (error) {
-      throw new Error('Erreur lors de la mise à jour des statistiques');
-    }
+    const current = await this.getProfile();
+    const updated = { ...current, usage: { ...current.usage, ...usageData } };
+    localStorage.setItem('auth_user', JSON.stringify(updated));
+    localStorage.setItem('user_data', JSON.stringify(updated));
+    return updated;
   }
 
-  /**
-   * Récupération des statistiques utilisateur
-   * @param {Object} filters - Filtres optionnels { startDate, endDate, type }
-   * @returns {Promise<Object>} - Statistiques détaillées
-   */
-  async getStatistics(filters = {}) {
-    try {
-      const userId = this._getCurrentUserId();
-      if (!userId) {
-        throw new Error('Utilisateur non authentifié');
-      }
-
-      // Récupérer les transactions de l'utilisateur
-      const transactions = await firestoreService.getCollection('transactions', {
-        userId,
-        where: filters.startDate ? [{
-          field: 'createdAt',
-          operator: '>=',
-          value: filters.startDate
-        }] : [],
-        orderBy: { field: 'createdAt', direction: 'desc' }
-      });
-
-      // Calculer les statistiques
-      const stats = {
-        totalTransactions: transactions.length,
-        completedTransactions: transactions.filter(t => t.status === 'completed').length,
-        pendingTransactions: transactions.filter(t => t.status === 'pending').length,
-        totalAmount: transactions.reduce((sum, t) => sum + (t.amount || 0), 0),
-        completedAmount: transactions
-          .filter(t => t.status === 'completed')
-          .reduce((sum, t) => sum + (t.amount || 0), 0),
-        pendingAmount: transactions
-          .filter(t => t.status === 'pending')
-          .reduce((sum, t) => sum + (t.amount || 0), 0)
-      };
-
-      return stats;
-    } catch (error) {
-      throw new Error('Erreur lors du chargement des statistiques');
-    }
+  async getStatistics() {
+    const response = await http.get('/analytics/dashboard');
+    return response.data.data;
   }
 
-  /**
-   * Export des données utilisateur
-   * @returns {Promise<Blob>} - Fichier de données
-   */
   async exportData() {
-    try {
-      const userId = this._getCurrentUserId();
-      if (!userId) {
-        throw new Error('Utilisateur non authentifié');
-      }
-
-      // Récupérer toutes les données de l'utilisateur
-      const [userProfile, clients, transactions] = await Promise.all([
-        this.getProfile(userId),
-        firestoreService.getCollection('clients', { userId }),
-        firestoreService.getCollection('transactions', { userId })
-      ]);
-
-      return {
-        user: userProfile,
-        clients,
-        transactions,
-        exportedAt: new Date().toISOString()
-      };
-    } catch (error) {
-      throw new Error('Erreur lors de l\'export des données');
-    }
+    return {
+      user: await this.getProfile(),
+      exportedAt: new Date().toISOString()
+    };
   }
 
-  /**
-   * Mise à jour des préférences utilisateur
-   * @param {Object} preferences - Préférences { language, timezone, notifications, etc. }
-   * @returns {Promise<Object>} - Préférences mises à jour
-   */
   async updatePreferences(preferences) {
-    try {
-      const userId = this._getCurrentUserId();
-      if (!userId) {
-        throw new Error('Utilisateur non authentifié');
-      }
-
-      return await firestoreService.updateDocument('users', userId, { preferences });
-    } catch (error) {
-      throw new Error('Erreur lors de la mise à jour des préférences');
-    }
+    const current = await this.getProfile();
+    const updated = { ...current, preferences };
+    localStorage.setItem('auth_user', JSON.stringify(updated));
+    return updated;
   }
 
-  /**
-   * Récupération des préférences utilisateur
-   * @returns {Promise<Object>} - Préférences utilisateur
-   */
   async getPreferences() {
-    try {
-      const userProfile = await this.getProfile();
-      return userProfile.preferences || {
-        language: 'fr',
-        timezone: 'Africa/Dakar',
-        notifications: {
-          email: true,
-          push: true,
-          sms: false
-        },
-        theme: 'light'
-      };
-    } catch (error) {
-      // Retourner des préférences par défaut en cas d'erreur
-      return {
-        language: 'fr',
-        timezone: 'Africa/Dakar',
-        notifications: {
-          email: true,
-          push: true,
-          sms: false
-        },
-        theme: 'light'
-      };
-    }
+    return {
+      language: 'fr',
+      timezone: 'Africa/Dakar',
+      notifications: { email: true, push: true, sms: false },
+      theme: 'light'
+    };
   }
 }
 

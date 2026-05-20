@@ -1,66 +1,102 @@
 <script setup>
-import { ref } from 'vue';
-import { useRouter } from 'vue-router';
-import { Phone, Lock, DollarSign } from 'lucide-vue-next';
+import { onMounted, ref } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
+import { Mail, Lock, DollarSign } from 'lucide-vue-next';
 import { useUser } from '../composables/useUser.js';
+import { authService } from '../services/auth.service.js';
 
 const router = useRouter();
-const { login, loading } = useUser();
+const route = useRoute();
+const { login, googleCredentialLogin, loading } = useUser();
 
-const phone = ref('');
-const pin = ref('');
+const email = ref('');
+const password = ref('');
 const errors = ref({});
+const googleButtonEl = ref(null);
 
-const validateSenegalesePhone = (phoneNumber) => {
-  if (!phoneNumber || phoneNumber.trim() === '') {
-    return 'Le numero de telephone est requis';
+const getRedirectPath = () => {
+  const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '';
+  if (!redirect.startsWith('/') || redirect.startsWith('//')) return '';
+  if (redirect === '/login' || redirect === '/register') return '';
+  return redirect;
+};
+
+const goAfterAuth = (user) => {
+  const redirectPath = getRedirectPath();
+  if (!user?.onboardingCompleted) {
+    if (redirectPath) {
+      localStorage.setItem('post_onboarding_redirect', redirectPath);
+    }
+    router.push('/onboarding');
+    return;
   }
-  // Remove spaces and +221 prefix if present
-  const cleaned = phoneNumber.replace(/\s+/g, '').replace(/^\+221/, '');
-  // Check if starts with valid prefixes and has 9 digits total
-  const validPrefixes = ['70', '71', '75', '76', '77', '78'];
-  if (cleaned.length !== 9 || !validPrefixes.some(prefix => cleaned.startsWith(prefix))) {
-    return 'Numero invalide. Utilisez un numero senegalais (70,71,75,76,77,78)';
-  }
+
+  router.push(redirectPath || '/dashboard');
+};
+
+const validateEmail = (value) => {
+  if (!value || value.trim() === '') return 'L’email est requis';
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) return 'Email invalide';
   return null;
 };
 
-const validatePin = (pinValue) => {
-  if (!pinValue || pinValue.length !== 4) {
-    return 'Le code PIN doit contenir 4 chiffres';
-  }
-  if (!/^\d{4}$/.test(pinValue)) {
-    return 'Le code PIN doit contenir uniquement des chiffres';
-  }
+const validatePassword = (value) => {
+  if (!value) return 'Le mot de passe est requis';
   return null;
 };
 
 const handleLogin = async () => {
   errors.value = {};
   
-  const phoneError = validateSenegalesePhone(phone.value);
-  if (phoneError) {
-    errors.value.phone = phoneError;
+  const emailError = validateEmail(email.value);
+  if (emailError) {
+    errors.value.email = emailError;
     return;
   }
 
-  const pinError = validatePin(pin.value);
-  if (pinError) {
-    errors.value.pin = pinError;
+  const passwordError = validatePassword(password.value);
+  if (passwordError) {
+    errors.value.password = passwordError;
     return;
   }
 
   const result = await login({
-    phone: phone.value,
-    pin: pin.value
+    email: email.value,
+    password: password.value
   });
 
   if (result.success) {
-    router.push('/dashboard');
+    goAfterAuth(result.user);
   } else {
     errors.value.general = result.error || 'Erreur de connexion';
   }
 };
+
+const mountGoogleButton = async () => {
+  try {
+    await authService.renderGoogleButton(googleButtonEl.value, {
+      text: 'continue_with',
+      onCredential: async (credential) => {
+        errors.value = {};
+        const result = await googleCredentialLogin(credential);
+        if (result.success) {
+          goAfterAuth(result.user);
+        } else {
+          errors.value.general = result.error || 'Connexion Google impossible';
+        }
+      },
+      onError: (message) => {
+        errors.value.general = message;
+      }
+    });
+  } catch (error) {
+    errors.value.general = error.message || 'Google Sign-In indisponible';
+  }
+};
+
+onMounted(async () => {
+  await mountGoogleButton();
+});
 </script>
 
 <template>
@@ -81,55 +117,62 @@ const handleLogin = async () => {
       <div class="bg-white rounded-2xl shadow-xl p-8">
         <!-- Welcome Text -->
         <h1 class="text-3xl font-bold text-gray-900 mb-2">Bienvenue !</h1>
-        <p class="text-gray-600 mb-8">Connectez-vous avec votre numero de telephone et votre code PIN</p>
+        <p class="text-gray-600 mb-8">Connectez-vous à votre espace entreprise</p>
 
         <!-- Error Message -->
         <div v-if="errors.general" class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md mb-6">
           {{ errors.general }}
         </div>
 
+        <div class="grid gap-3 mb-6">
+          <div ref="googleButtonEl" class="min-h-[44px] w-full flex justify-center"></div>
+        </div>
+
+        <div class="flex items-center gap-3 mb-6">
+          <div class="h-px flex-1 bg-gray-200"></div>
+          <span class="text-xs font-semibold text-gray-400">OU</span>
+          <div class="h-px flex-1 bg-gray-200"></div>
+        </div>
+
         <form @submit.prevent="handleLogin" class="space-y-6">
-          <!-- Phone Field -->
+          <!-- Email Field -->
           <div>
-            <label for="phone" class="block text-sm font-semibold text-gray-700 mb-2">
-              Numero de telephone
+            <label for="email" class="block text-sm font-semibold text-gray-700 mb-2">
+              Email professionnel
             </label>
             <div class="relative">
               <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                <Phone :size="20" class="text-gray-400" />
+                <Mail :size="20" class="text-gray-400" />
               </div>
               <input
-                id="phone"
-                v-model="phone"
-                type="tel"
-                placeholder="77 123 45 67"
-                :class="['w-full pl-12 pr-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all', errors.phone ? 'border-red-500' : 'border-gray-300']"
+                id="email"
+                v-model="email"
+                type="email"
+                placeholder="vous@entreprise.com"
+                :class="['w-full pl-12 pr-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all', errors.email ? 'border-red-500' : 'border-gray-300']"
               />
             </div>
-            <p class="text-xs text-gray-500 mt-1">Exemple: 77 123 45 67 (sans +221)</p>
-            <p v-if="errors.phone" class="text-xs text-red-600 mt-1">{{ errors.phone }}</p>
+            <p v-if="errors.email" class="text-xs text-red-600 mt-1">{{ errors.email }}</p>
           </div>
 
-          <!-- PIN Field -->
+          <!-- Password Field -->
           <div>
-            <label for="pin" class="block text-sm font-semibold text-gray-700 mb-2">
-              Code PIN
+            <label for="password" class="block text-sm font-semibold text-gray-700 mb-2">
+              Mot de passe
             </label>
             <div class="relative">
               <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                 <Lock :size="20" class="text-gray-400" />
               </div>
               <input
-                id="pin"
-                v-model="pin"
+                id="password"
+                v-model="password"
                 type="password"
-                maxlength="4"
-                placeholder="____"
-                :class="['w-full pl-12 pr-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all', errors.pin ? 'border-red-500' : 'border-gray-300']"
+                placeholder="Votre mot de passe"
+                :class="['w-full pl-12 pr-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all', errors.password ? 'border-red-500' : 'border-gray-300']"
               />
             </div>
-            <p class="text-xs text-gray-500 mt-1">Entrez votre code PIN a 4 chiffres</p>
-            <p v-if="errors.pin" class="text-xs text-red-600 mt-1">{{ errors.pin }}</p>
+            <p v-if="errors.password" class="text-xs text-red-600 mt-1">{{ errors.password }}</p>
           </div>
 
           <!-- Login Button -->
@@ -145,7 +188,10 @@ const handleLogin = async () => {
         <!-- Sign Up Link -->
         <p class="text-center text-sm text-gray-600 mt-6">
           Vous n'avez pas de compte ?
-          <router-link to="/register" class="text-teal-500 hover:text-teal-600 font-medium transition-colors">
+          <router-link
+            :to="{ path: '/register', query: route.query.redirect ? { redirect: route.query.redirect } : {} }"
+            class="text-teal-500 hover:text-teal-600 font-medium transition-colors"
+          >
             Creer un compte
           </router-link>
         </p>

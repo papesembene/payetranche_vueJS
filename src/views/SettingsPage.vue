@@ -1,456 +1,311 @@
-<template>
-  <div class="min-h-screen bg-gray-50">
-    <DashboardHeader />
-
-    <main class="max-w-4xl mx-auto px-6 lg:px-8 py-8">
-      <!-- Page Title -->
-      <div class="mb-8">
-        <button
-          @click="$router.push('/dashboard')"
-          class="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4 transition-colors"
-        >
-          <ArrowLeft :size="20" />
-          <span>Retour au tableau de bord</span>
-        </button>
-        <h1 class="text-3xl font-bold text-gray-900 mb-2">Paramètres</h1>
-        <p class="text-gray-600">Gérez votre compte et votre abonnement</p>
-      </div>
-
-      <!-- Tabs -->
-      <div class="bg-white rounded-lg shadow-sm mb-6">
-        <div class="border-b border-gray-200">
-          <nav class="flex">
-            <button
-              @click="activeTab = 'profile'"
-              :class="[
-                'px-6 py-3 text-sm font-medium border-b-2 transition-colors',
-                activeTab === 'profile'
-                  ? 'border-teal-500 text-teal-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
-              ]"
-            >
-              Profil
-            </button>
-            <button
-              @click="activeTab = 'subscription'"
-              :class="[
-                'px-6 py-3 text-sm font-medium border-b-2 transition-colors',
-                activeTab === 'subscription'
-                  ? 'border-teal-500 text-teal-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
-              ]"
-            >
-              Abonnement
-            </button>
-          </nav>
-        </div>
-
-        <!-- Profile Tab -->
-        <div v-if="activeTab === 'profile'" class="p-6">
-          <!-- Loading State -->
-          <div v-if="loading || !user" class="animate-pulse">
-            <div class="h-6 bg-gray-200 rounded w-1/3 mb-6"></div>
-            <div class="space-y-4">
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div class="h-10 bg-gray-200 rounded"></div>
-                <div class="h-10 bg-gray-200 rounded"></div>
-              </div>
-              <div class="h-10 bg-gray-200 rounded w-1/4"></div>
-            </div>
-          </div>
-
-          <!-- Profile Form -->
-          <div v-else-if="user">
-            <h2 class="text-xl font-semibold text-gray-900 mb-6">Informations du profil</h2>
-
-            <form @submit.prevent="updateProfile" class="space-y-6">
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label for="name" class="block text-sm font-medium text-gray-700 mb-2">
-                    Nom complet
-                  </label>
-                  <input
-                    id="name"
-                    v-model="profileForm.name"
-                    type="text"
-                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label for="phone" class="block text-sm font-medium text-gray-700 mb-2">
-                    Numéro de téléphone
-                  </label>
-                  <input
-                    id="phone"
-                    v-model="profileForm.phone"
-                    type="tel"
-                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div>
-                <button
-                  type="submit"
-                  :disabled="loading"
-                  class="px-4 py-2 bg-teal-500 text-white rounded-md hover:bg-teal-600 disabled:opacity-50"
-                >
-                  {{ loading ? 'Mise à jour...' : 'Mettre à jour le profil' }}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-
-        <!-- Subscription Tab -->
-        <div v-if="activeTab === 'subscription'" class="p-6">
-          <!-- Loading State for Subscription -->
-          <div v-if="loading" class="animate-pulse">
-            <div class="flex items-center justify-between mb-6">
-              <div class="h-6 bg-gray-200 rounded w-1/3"></div>
-              <div class="text-right">
-                <div class="h-4 bg-gray-200 rounded w-20 mb-1"></div>
-                <div class="h-5 bg-gray-200 rounded w-16"></div>
-              </div>
-            </div>
-            <div class="h-32 bg-gray-200 rounded mb-6"></div>
-            <div class="h-20 bg-gray-200 rounded"></div>
-          </div>
-
-          <!-- Subscription Content -->
-          <div v-else-if="user && currentPlan">
-            <div class="flex items-center justify-between mb-6">
-              <h2 class="text-xl font-semibold text-gray-900">Gestion de l'abonnement</h2>
-              <div class="text-right">
-                <div class="text-sm text-gray-600">Plan actuel</div>
-                <div class="font-semibold text-gray-900">{{ currentPlan.name }}</div>
-              </div>
-            </div>
-
-          <!-- Current Subscription Info -->
-          <div class="bg-gray-50 rounded-lg p-4 mb-6">
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <div class="text-sm text-gray-600">Statut</div>
-                <div class="font-medium text-gray-900 capitalize">{{ getStatusLabel(subscriptionStatus.status) }}</div>
-              </div>
-              <div>
-                <div class="text-sm text-gray-600">
-                  {{ subscriptionStatus.status === 'trial' ? 'Expiration de l\'essai' : 'Renouvellement' }}
-                </div>
-                <div class="font-medium text-gray-900">
-                  {{ getEffectiveEndDate() ? formatDate(getEffectiveEndDate()) : 'Non défini' }}
-                </div>
-              </div>
-              <div>
-                <div class="text-sm text-gray-600">Prix</div>
-                <div class="font-medium text-gray-900">
-                  <template v-if="currentPlan?.id === 'free'">
-                    Essai gratuit ({{ daysUntilExpiry }} jours restants)
-                  </template>
-                  <template v-else>
-                    {{ currentPlan?.price || 0 }} {{ currentPlan?.currency || 'FCFA' }}/{{ currentPlan?.billing || 'mensuel' }}
-                  </template>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Plan Selection - UNIQUEMENT si abonnement expiré ou essai -->
-          <div v-if="canChangePlan" class="mb-6">
-            <h3 class="text-lg font-medium text-gray-900 mb-4">
-              {{ subscriptionStatus.status === 'trial' ? 'Choisir un plan payant' : 'Changer de plan' }}
-            </h3>
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div
-                v-for="(plan, key) in subscriptionPlans"
-                :key="key"
-                :class="[
-                  'border rounded-lg p-4 cursor-pointer transition-all',
-                  currentPlan?.id === key
-                    ? 'border-teal-500 bg-teal-50'
-                    : 'border-gray-200 hover:border-teal-300'
-                ]"
-                @click="selectedPlan = key"
-              >
-                <div class="flex items-center justify-between mb-2">
-                  <h4 class="font-medium text-gray-900">{{ plan.name }}</h4>
-                  <input
-                    type="radio"
-                    :value="key"
-                    v-model="selectedPlan"
-                    :disabled="currentPlan?.id === key"
-                    class="text-teal-500"
-                  />
-                </div>
-                <div class="text-2xl font-bold text-gray-900 mb-1">
-                  <template v-if="plan.id === 'free'">
-                    Essai gratuit
-                    <span class="text-sm font-normal text-gray-600 block">14 jours</span>
-                  </template>
-                  <template v-else>
-                    {{ plan.price }} {{ plan.currency }}
-                    <span class="text-sm font-normal text-gray-600">/{{ plan.billing }}</span>
-                  </template>
-                </div>
-                <p class="text-sm text-gray-600">{{ plan.description }}</p>
-                <div v-if="plan.id === 'free'" class="mt-2 flex items-center gap-1 text-xs text-orange-600 font-medium">
-                  <AlertTriangle :size="12" />
-                  <span>Période d'essai limitée</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Message pour abonnements actifs - pas de changement possible -->
-          <div v-else-if="subscriptionStatus.status === 'active'" class="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-md">
-            <h3 class="text-lg font-medium text-yellow-900 mb-2">Changement de plan non disponible</h3>
-            <p class="text-sm text-yellow-800">
-              Les changements de plan ne sont possibles que lorsque votre abonnement a expiré ou pendant la période d'essai.
-              Vous ne pouvez pas changer de plan pendant un abonnement actif.
-            </p>
-          </div>
-
-          <!-- Action Buttons - UNIQUEMENT si changement possible -->
-          <div v-if="canChangePlan" class="flex items-center justify-between mb-6">
-            <div>
-              <!-- Bouton de réactivation seulement si annulé -->
-              <button
-                v-if="subscriptionStatus.cancelAtPeriodEnd"
-                @click="reactivateSubscription"
-                :disabled="loading"
-                class="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 disabled:opacity-50"
-              >
-                Réactiver l'abonnement
-              </button>
-            </div>
-
-            <!-- Bouton de mise à jour du plan -->
-            <button
-              v-if="selectedPlan && selectedPlan !== currentPlan?.id"
-              @click="updatePlan"
-              :disabled="loading"
-              class="px-4 py-2 bg-teal-500 text-white rounded-md hover:bg-teal-600 disabled:opacity-50"
-            >
-              {{ loading ? 'Mise à jour...' : 'Mettre à jour le plan' }}
-            </button>
-          </div>
-
-          <!-- Section Renouvellement - si expiré ou approche expiration -->
-          <div v-if="canRenew" class="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-md">
-            <h3 class="text-lg font-medium text-blue-900 mb-2">
-              {{ subscriptionStatus.status === 'expired' ? 'Renouveler votre abonnement' : 'Renouvellement anticipé' }}
-            </h3>
-            <p class="text-sm text-blue-700 mb-4">
-              <template v-if="subscriptionStatus.status === 'expired'">
-                Votre abonnement a expiré. Renouvelez maintenant pour continuer à utiliser PayTranche.
-              </template>
-              <template v-else>
-                Votre abonnement arrive à expiration dans {{ daysUntilExpiry }} jour{{ daysUntilExpiry > 1 ? 's' : '' }}.
-                Vous pouvez le renouveler maintenant pour éviter toute interruption.
-              </template>
-            </p>
-
-            <div class="space-y-3">
-              <button
-                @click="renewSubscription"
-                :disabled="loading"
-                class="w-full px-4 py-3 bg-orange-500 text-white rounded-md hover:bg-orange-600 disabled:opacity-50 flex items-center justify-center gap-2"
-              >
-                <Smartphone :size="18" />
-                {{ subscriptionStatus.status === 'expired' ? 'Renouveler maintenant' : 'Renouveler anticipé' }}
-              </button>
-
-              <button
-                v-if="subscriptionStatus.status !== 'expired'"
-                @click="setupRecurringPayment"
-                :disabled="loading"
-                class="w-full px-4 py-3 bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:opacity-50 flex items-center justify-center gap-2"
-              >
-                <CreditCard :size="18" />
-                Configurer le renouvellement automatique
-              </button>
-            </div>
-
-            <div class="mt-3 text-sm text-gray-600 text-center">
-              Sécurisé par <strong>PayDunya</strong> - Gateway de paiement africain
-            </div>
-          </div>
-
-          <!-- Message pour renouvellements actifs -->
-          <div v-else-if="subscriptionStatus.status === 'active'" class="mt-6 p-4 bg-gray-50 border border-gray-200 rounded-md">
-            <h3 class="text-lg font-medium text-gray-900 mb-2">Renouvellement automatique</h3>
-            <p class="text-sm text-gray-700 mb-3">
-              Configurez le renouvellement automatique pour éviter les interruptions de service.
-            </p>
-            <p class="text-sm text-gray-600 mb-3">
-              Disponible {{ daysUntilExpiry <= 7 ? 'maintenant' : `dans ${daysUntilExpiry - 7} jours` }} (7 jours avant expiration).
-            </p>
-            <p v-if="daysUntilExpiry <= 7" class="text-sm text-blue-600 font-medium">
-              💡 Vous pouvez aussi renouveler manuellement maintenant pour éviter toute interruption.
-            </p>
-          </div>
-
-          <!-- Cancellation Notice -->
-          <div v-if="subscriptionStatus.cancelAtPeriodEnd" class="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
-            <p class="text-sm text-yellow-800">
-              Votre abonnement sera annulé le {{ formatDate(getEffectiveEndDate()) }}.
-              Vous garderez accès à toutes les fonctionnalités jusqu'à cette date.
-            </p>
-          </div>
-          </div>
-        </div>
-      </div>
-    </main>
-  </div>
-</template>
-
 <script setup>
-import { ref, computed, watch } from 'vue';
-import { ArrowLeft, Smartphone, CreditCard, Clock, AlertTriangle } from 'lucide-vue-next';
+import { computed, onMounted, ref } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
+import { ArrowLeft, Check, CreditCard, Crown, Loader2, User, Wallet } from 'lucide-vue-next';
 import DashboardHeader from '../components/dashboard/DashboardHeader.vue';
 import { useUser } from '../composables/useUser.js';
-import { payDunyaService } from '../services/payDunya.service.js';
-import { safeFormatDate } from '../utils/export.js';
+import { subscriptionPlans } from '../data/subscriptionPlans.js';
+import { subscriptionService } from '../services/subscription.service.js';
 
-const {
-  user,
-  subscriptionPlans,
-  currentPlan,
-  subscriptionStatus,
-  daysUntilExpiry,
-  updateProfile,
-  updateSubscription,
-  cancelSubscription,
-  reactivateSubscription,
-  loadUser,
-  loading
-} = useUser();
+const router = useRouter();
+const route = useRoute();
+const { user, loadUser, updateProfile } = useUser();
 
-const activeTab = ref('profile');
-const selectedPlan = ref('');
+const activeTab = ref(route.query.tab === 'subscription' ? 'subscription' : 'profile');
+const loading = ref(false);
+const paymentLoading = ref(false);
+const message = ref('');
+const error = ref('');
+const subscription = ref(null);
+const billingHistory = ref([]);
+const targetPayment = ref('Orange Money, Wave');
 
-// Initialize form when user data is available
-const profileForm = computed(() => ({
-  name: user.value?.name || '',
-  phone: user.value?.phone || ''
-}));
-
-// Vérifier si l'utilisateur peut changer de plan
-const canChangePlan = computed(() => {
-  return subscriptionStatus.value?.status === 'expired' ||
-         subscriptionStatus.value?.status === 'trial';
-  // Note: Plan changes are NOT allowed during active subscriptions
-  // Only when expired or in trial period
+const profileForm = ref({
+  name: '',
+  phone: ''
 });
 
-// Vérifier si l'utilisateur peut renouveler
-const canRenew = computed(() => {
-  return subscriptionStatus.value?.status === 'expired' ||
-         (subscriptionStatus.value?.status === 'active' && daysUntilExpiry.value <= 7);
-});
+const currentPlanId = computed(() => subscription.value?.plan || user.value?.subscription?.plan || 'free');
+const currentPlan = computed(() => subscriptionPlans[currentPlanId.value] || subscriptionPlans.free);
+const clientsUsage = computed(() => subscription.value?.usage?.clients ?? user.value?.usage?.clients ?? 0);
+const maxClients = computed(() => subscription.value?.limits?.maxClients ?? currentPlan.value?.limits?.maxClients);
+const isPro = computed(() => currentPlanId.value === 'pro');
 
-const getStatusLabel = (status) => {
+const formatAmount = (amount) =>
+  new Intl.NumberFormat('fr-FR').format(Number(amount || 0)) + ' FCFA';
+
+const formatDate = (value) => {
+  if (!value) return 'Non défini';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'Non défini';
+  return date.toLocaleDateString('fr-FR', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric'
+  });
+};
+
+const statusLabel = (status) => {
   const labels = {
-    active: 'Actif',
-    trial: 'Essai',
-    expired: 'Expiré',
-    cancelled: 'Annulé',
-    past_due: 'En retard'
+    INITIATED: 'Créé',
+    PENDING: 'En attente',
+    COMPLETED: 'Payé',
+    CANCELLED: 'Annulé',
+    FAILED: 'Échoué'
   };
   return labels[status] || status;
 };
 
-const formatDate = (dateString) => {
-  return safeFormatDate(dateString);
+const syncProfileForm = () => {
+  profileForm.value = {
+    name: user.value?.name || '',
+    phone: user.value?.phone || ''
+  };
 };
 
-const getEffectiveEndDate = () => {
-  if (!subscriptionStatus.value) return null;
-  
-  // Pour les utilisateurs en période d'essai, utiliser trialEnd
-  if (subscriptionStatus.value.status === 'trial') {
-    return subscriptionStatus.value.trialEnd;
-  }
-  
-  // Pour les autres statuts, utiliser currentPeriodEnd
-  return subscriptionStatus.value.currentPeriodEnd;
-};
-
-const renewSubscription = async () => {
-  if (!currentPlan.value || !currentPlan.value.id) {
-    alert('Erreur: Plan d\'abonnement non défini');
-    return;
-  }
-
+const loadSubscription = async () => {
   loading.value = true;
+  error.value = '';
   try {
-    const result = await payDunyaService.processSubscriptionRenewal(
-      currentPlan.value.id,
-      user.value
-    );
+    await loadUser();
+    syncProfileForm();
+    subscription.value = await subscriptionService.getCurrentSubscription();
+    billingHistory.value = await subscriptionService.getBillingHistory();
 
-    if (result.success) {
-      // Rediriger vers PayDunya pour le paiement
-      window.location.href = result.payment_url;
+    if (route.query.payment === 'success') {
+      message.value = 'Paiement reçu par PayTech. Le plan Pro s’active dès que la confirmation arrive.';
+    } else if (route.query.payment === 'cancel') {
+      error.value = 'Paiement annulé. Votre plan n’a pas changé.';
     }
-  } catch (error) {
-    alert('Erreur lors du renouvellement: ' + error.message);
+  } catch (loadError) {
+    error.value = loadError.message || 'Impossible de charger l’abonnement';
   } finally {
     loading.value = false;
   }
 };
 
-const updatePlan = async () => {
-  if (!selectedPlan.value || selectedPlan.value === currentPlan.value?.id) return;
-
+const saveProfile = async () => {
   loading.value = true;
+  error.value = '';
+  message.value = '';
   try {
-    const result = await updateSubscription(selectedPlan.value);
-
+    const result = await updateProfile(profileForm.value);
     if (result.success) {
-      alert(`Plan mis à jour avec succès ! Vous êtes maintenant sur ${subscriptionPlans.value[selectedPlan.value]?.name}`);
-      // Recharger les données utilisateur
-      await loadUser();
+      message.value = 'Profil mis à jour';
     } else {
-      alert('Erreur lors de la mise à jour du plan: ' + result.error);
+      error.value = result.error || 'Profil non mis à jour';
     }
-  } catch (error) {
-    alert('Erreur lors de la mise à jour du plan: ' + error.message);
   } finally {
     loading.value = false;
   }
 };
 
-const setupRecurringPayment = async () => {
-  if (!currentPlan.value) return;
-
-  loading.value = true;
+const payPro = async () => {
+  paymentLoading.value = true;
+  error.value = '';
+  message.value = '';
   try {
-    const result = await payDunyaService.setupRecurringPayment(
-      currentPlan.value.id,
-      user.value
-    );
+    const result = await subscriptionService.createCheckout('pro', {
+      targetPayment: targetPayment.value
+    });
 
-    if (result.success) {
-      alert('Renouvellement automatique configuré avec succès !');
-      // Recharger les données utilisateur
-      await loadUser();
+    if (!result.checkout?.redirectUrl) {
+      throw new Error('PayTech n’a pas renvoyé de lien de paiement');
     }
-  } catch (error) {
-    alert('Erreur lors de la configuration: ' + error.message);
+
+    window.location.href = result.checkout.redirectUrl;
+  } catch (checkoutError) {
+    error.value = checkoutError.message || 'Impossible de créer le paiement Pro';
   } finally {
-    loading.value = false;
+    paymentLoading.value = false;
   }
 };
 
-// Watch for currentPlan changes to set selectedPlan
-watch(() => currentPlan.value?.id, (newId) => {
-  if (newId) {
-    selectedPlan.value = newId;
-  }
-}, { immediate: true });
+onMounted(loadSubscription);
 </script>
+
+<template>
+  <div class="min-h-screen bg-slate-50">
+    <DashboardHeader />
+
+    <main class="mx-auto max-w-5xl px-4 py-5 sm:px-6 lg:px-8">
+      <button
+        @click="router.push('/dashboard')"
+        class="mb-5 flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-slate-950"
+      >
+        <ArrowLeft :size="18" />
+        Retour
+      </button>
+
+      <div class="mb-5">
+        <h1 class="text-2xl font-bold text-slate-950">Paramètres</h1>
+        <p class="text-sm text-slate-500">Compte vendeur et abonnement PayTranche.</p>
+      </div>
+
+      <div v-if="message" class="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">
+        {{ message }}
+      </div>
+      <div v-if="error" class="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+        {{ error }}
+      </div>
+
+      <div class="mb-5 grid grid-cols-2 rounded-lg border border-slate-200 bg-white p-1 shadow-sm">
+        <button
+          class="rounded-md px-3 py-2.5 text-sm font-bold"
+          :class="activeTab === 'profile' ? 'bg-teal-600 text-white' : 'text-slate-600'"
+          @click="activeTab = 'profile'"
+        >
+          Profil
+        </button>
+        <button
+          class="rounded-md px-3 py-2.5 text-sm font-bold"
+          :class="activeTab === 'subscription' ? 'bg-teal-600 text-white' : 'text-slate-600'"
+          @click="activeTab = 'subscription'"
+        >
+          Abonnement
+        </button>
+      </div>
+
+      <section v-if="activeTab === 'profile'" class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
+        <div class="mb-5 flex items-center gap-3">
+          <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-100 text-slate-700">
+            <User :size="21" />
+          </div>
+          <div>
+            <h2 class="font-bold text-slate-950">Profil vendeur</h2>
+            <p class="text-sm text-slate-500">{{ user?.email }}</p>
+          </div>
+        </div>
+
+        <form class="grid gap-4 sm:grid-cols-2" @submit.prevent="saveProfile">
+          <div>
+            <label class="mb-1.5 block text-sm font-semibold text-slate-700">Nom complet</label>
+            <input
+              v-model="profileForm.name"
+              type="text"
+              class="w-full rounded-lg border border-slate-300 px-3 py-3 text-base outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-100"
+            />
+          </div>
+          <div>
+            <label class="mb-1.5 block text-sm font-semibold text-slate-700">Téléphone</label>
+            <input
+              v-model="profileForm.phone"
+              type="tel"
+              class="w-full rounded-lg border border-slate-300 px-3 py-3 text-base outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-100"
+            />
+          </div>
+          <div class="sm:col-span-2">
+            <button
+              type="submit"
+              :disabled="loading"
+              class="rounded-lg bg-teal-600 px-4 py-3 text-sm font-bold text-white disabled:opacity-60"
+            >
+              Enregistrer
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <section v-else class="space-y-5">
+        <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
+          <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p class="text-sm font-semibold text-slate-500">Plan actuel</p>
+              <h2 class="text-2xl font-black text-slate-950">{{ currentPlan.name }}</h2>
+              <p class="text-sm text-slate-500">
+                {{ isPro ? `Valable jusqu’au ${formatDate(subscription?.currentPeriodEnd)}` : 'Gratuit, limité à 5 clients actifs' }}
+              </p>
+            </div>
+            <div class="rounded-lg bg-slate-50 px-4 py-3 text-sm font-bold text-slate-700">
+              Clients: {{ clientsUsage }} / {{ maxClients === null || maxClients === -1 ? 'illimité' : maxClients }}
+            </div>
+          </div>
+        </div>
+
+        <div class="grid gap-4 lg:grid-cols-3">
+          <article class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div class="mb-4 flex items-center justify-between">
+              <h3 class="text-lg font-black text-slate-950">Gratuit</h3>
+              <span v-if="currentPlanId === 'free'" class="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">Actuel</span>
+            </div>
+            <p class="mb-4 text-3xl font-black text-slate-950">0 FCFA</p>
+            <ul class="space-y-2 text-sm text-slate-600">
+              <li class="flex items-center gap-2"><Check :size="16" class="text-teal-600" />5 clients actifs</li>
+              <li class="flex items-center gap-2"><Check :size="16" class="text-teal-600" />Dettes et paiements</li>
+              <li class="flex items-center gap-2"><Check :size="16" class="text-teal-600" />Relances simples</li>
+            </ul>
+          </article>
+
+          <article class="rounded-xl border-2 border-teal-500 bg-white p-4 shadow-sm lg:col-span-2">
+            <div class="mb-4 flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <Crown :size="22" class="text-teal-600" />
+                <h3 class="text-lg font-black text-slate-950">Pro</h3>
+              </div>
+              <span v-if="isPro" class="rounded-full bg-teal-50 px-3 py-1 text-xs font-bold text-teal-700">Actuel</span>
+            </div>
+
+            <p class="mb-1 text-3xl font-black text-slate-950">{{ formatAmount(subscriptionPlans.pro.price) }}</p>
+            <p class="mb-4 text-sm text-slate-500">Par mois, payé par le vendeur à PayTranche.</p>
+
+            <div class="mb-4 grid gap-2 text-sm text-slate-700 sm:grid-cols-2">
+              <div class="flex items-center gap-2"><Check :size="16" class="text-teal-600" />Clients illimités</div>
+              <div class="flex items-center gap-2"><Check :size="16" class="text-teal-600" />Crédits illimités</div>
+              <div class="flex items-center gap-2"><Check :size="16" class="text-teal-600" />Dashboard complet</div>
+              <div class="flex items-center gap-2"><Check :size="16" class="text-teal-600" />Historique paiements</div>
+            </div>
+
+            <div v-if="!isPro" class="grid gap-3 sm:grid-cols-[1fr_auto]">
+              <select
+                v-model="targetPayment"
+                class="rounded-lg border border-slate-300 px-3 py-3 text-base outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-100"
+              >
+                <option value="Orange Money, Wave">Orange Money + Wave</option>
+                <option value="Wave">Wave</option>
+                <option value="Orange Money">Orange Money</option>
+              </select>
+              <button
+                type="button"
+                :disabled="paymentLoading"
+                class="flex items-center justify-center gap-2 rounded-lg bg-teal-600 px-5 py-3 text-base font-black text-white disabled:opacity-60"
+                @click="payPro"
+              >
+                <Loader2 v-if="paymentLoading" :size="18" class="animate-spin" />
+                <CreditCard v-else :size="18" />
+                Payer Pro
+              </button>
+            </div>
+          </article>
+        </div>
+
+        <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
+          <div class="mb-4 flex items-center gap-2">
+            <Wallet :size="20" class="text-slate-600" />
+            <h3 class="font-black text-slate-950">Historique abonnement</h3>
+          </div>
+
+          <div v-if="billingHistory.length === 0" class="rounded-lg bg-slate-50 px-4 py-4 text-sm font-medium text-slate-500">
+            Aucun paiement d’abonnement pour le moment.
+          </div>
+
+          <div v-else class="divide-y divide-slate-100">
+            <div
+              v-for="payment in billingHistory"
+              :key="payment.id"
+              class="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between"
+            >
+              <div>
+                <p class="font-bold text-slate-900">Plan {{ payment.plan }}</p>
+                <p class="text-xs text-slate-500">{{ payment.refCommand }} · {{ formatDate(payment.createdAt) }}</p>
+              </div>
+              <div class="text-left sm:text-right">
+                <p class="font-black text-slate-950">{{ formatAmount(payment.amount) }}</p>
+                <p class="text-xs font-bold text-slate-500">{{ statusLabel(payment.status) }}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+</template>

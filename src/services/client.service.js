@@ -1,217 +1,146 @@
-import { firestoreService } from './firestore.service.js';
-import { auth } from '../firebase.js';
+import { http } from './http.js';
 
-/**
- * Service de gestion des clients avec Firestore
- * Responsabilités : CRUD clients, recherche, statistiques
- */
+const backendStatusToFrontend = (status) => {
+  if (status === 'BON') return 'active';
+  if (status === 'RISQUE') return 'risk';
+  if (status === 'MAUVAIS') return 'bad';
+  return 'active';
+};
+
+const frontendStatusToBackend = (status) => {
+  if (status === 'risk') return 'RISQUE';
+  if (status === 'bad') return 'MAUVAIS';
+  if (['BON', 'RISQUE', 'MAUVAIS'].includes(status)) return status;
+  return 'BON';
+};
+
+const normalizeClient = (client) => ({
+  ...client,
+  status: backendStatusToFrontend(client.status),
+  backendStatus: client.status,
+  total: client.totalDebt || 0,
+  paid: Math.max((client.totalDebt || 0) - (client.totalDebt || 0), 0),
+  acompte: client.acompte || 0
+});
+
 class ClientService {
-  /**
-   * Récupération des clients de l'utilisateur
-   * @param {Object} filters - Filtres { status, search, limit, offset }
-   * @returns {Promise<Array>} - Liste des clients
-   */
   async getClients(filters = {}) {
     try {
-      const userId = this._getCurrentUserId();
-      if (!userId) {
-        throw new Error('Utilisateur non authentifié');
+      const params = new URLSearchParams();
+      if (filters.search) params.set('search', filters.search);
+      if (filters.status && ['BON', 'RISQUE', 'MAUVAIS'].includes(filters.status)) {
+        params.set('status', filters.status);
       }
 
-      let queryOptions = { userId };
+      const response = await http.get(`/clients?${params.toString()}`);
+      let clients = response.data.data.map(normalizeClient);
 
-      // Appliquer les filtres
-      if (filters.status) {
-        queryOptions.where = [{
-          field: 'status',
-          operator: '==',
-          value: filters.status
-        }];
-      }
-
-      if (filters.limit) {
-        queryOptions.limit = filters.limit;
-      }
-
-      // Tri par défaut
-      queryOptions.orderBy = { field: 'createdAt', direction: 'desc' };
-
-      const clients = await firestoreService.getCollection('clients', queryOptions);
-
-      // Filtrage côté client pour la recherche si nécessaire
-      if (filters.search) {
-        const searchTerm = filters.search.toLowerCase();
-        return clients.filter(client =>
-          client.name?.toLowerCase().includes(searchTerm) ||
-          client.phone?.includes(searchTerm) ||
-          client.address?.toLowerCase().includes(searchTerm)
-        );
+      if (filters.status && !['BON', 'RISQUE', 'MAUVAIS'].includes(filters.status)) {
+        clients = clients.filter((client) => client.status === filters.status);
       }
 
       return clients;
     } catch (error) {
-      throw new Error('Erreur lors du chargement des clients');
+      throw new Error(error.response?.data?.message || 'Erreur lors du chargement des clients');
     }
   }
 
-  /**
-   * Récupération d'un client spécifique
-   * @param {string} clientId - ID du client
-   * @returns {Promise<Object>} - Détails du client
-   */
   async getClient(clientId) {
     try {
-      return await firestoreService.getDocument('clients', clientId);
+      const response = await http.get(`/clients/${clientId}`);
+      return normalizeClient(response.data.data);
     } catch (error) {
-      throw new Error('Erreur lors du chargement du client');
+      throw new Error(error.response?.data?.message || 'Erreur lors du chargement du client');
     }
   }
 
-  /**
-   * Création d'un nouveau client
-   * @param {Object} clientData - Données du client
-   * @returns {Promise<Object>} - Client créé
-   */
   async createClient(clientData) {
     try {
-      const userId = this._getCurrentUserId();
-      if (!userId) {
-        throw new Error('Utilisateur non authentifié');
+      const initialDebt = Number(clientData.totalDebt || 0);
+      const initialPaid = Number(clientData.acompte || 0);
+
+      const response = await http.post('/clients', {
+        name: clientData.name,
+        phone: clientData.phone,
+        address: clientData.address,
+        notes: clientData.notes,
+        totalDebt: 0,
+        status: frontendStatusToBackend(clientData.status)
+      });
+
+      const client = response.data.data;
+
+      if (initialDebt > 0) {
+        const creditResponse = await http.post('/credits', {
+          clientId: client.id,
+          amount: initialDebt,
+          paidAmount: 0,
+          description: clientData.description || 'Dette initiale',
+          dueDate: clientData.dueDate
+            ? new Date(clientData.dueDate).toISOString()
+            : undefined
+        });
+
+        if (initialPaid > 0) {
+          await http.post('/payments', {
+            clientId: client.id,
+            creditId: creditResponse.data.data.id,
+            amount: Math.min(initialPaid, initialDebt),
+            method: 'CASH',
+            status: 'COMPLETED',
+            reference: 'Acompte'
+          });
+        }
       }
 
-      // Validation du numéro de téléphone
-      if (!this._validatePhoneNumber(clientData.phone)) {
-        throw new Error('Numéro de téléphone invalide. Veuillez entrer un numéro sénégalais valide.');
-      }
-
-      // Validation de la dette (doit être > 0)
-      if (!clientData.totalDebt || clientData.totalDebt <= 0) {
-        throw new Error('Le montant de la dette doit être supérieur à 0 FCFA.');
-      }
-
-      const clientDoc = {
-        ...clientData,
-        userId,
-        status: 'active',
-        totalDebt: clientData.totalDebt,
-        acompte: clientData.acompte || 0,
-        lastPayment: null
-      };
-
-      return await firestoreService.createDocument('clients', clientDoc);
+      return this.getClient(client.id);
     } catch (error) {
-      throw new Error(error.message || 'Erreur lors de la création du client');
+      throw new Error(error.response?.data?.message || 'Erreur lors de la création du client');
     }
   }
 
-  /**
-   * Mise à jour d'un client
-   * @param {string} clientId - ID du client
-   * @param {Object} clientData - Données à mettre à jour
-   * @returns {Promise<Object>} - Client mis à jour
-   */
   async updateClient(clientId, clientData) {
     try {
-      return await firestoreService.updateDocument('clients', clientId, clientData);
+      const payload = {};
+      if (clientData.name !== undefined) payload.name = clientData.name;
+      if (clientData.phone !== undefined) payload.phone = clientData.phone;
+      if (clientData.address !== undefined) payload.address = clientData.address;
+      if (clientData.notes !== undefined) payload.notes = clientData.notes;
+      if (clientData.totalDebt !== undefined) payload.totalDebt = Number(clientData.totalDebt || 0);
+      if (clientData.status !== undefined) payload.status = frontendStatusToBackend(clientData.status);
+
+      const response = await http.patch(`/clients/${clientId}`, payload);
+      return normalizeClient(response.data.data);
     } catch (error) {
-      throw new Error('Erreur lors de la mise à jour du client');
+      throw new Error(error.response?.data?.message || 'Erreur lors de la mise à jour du client');
     }
   }
 
-  /**
-   * Suppression d'un client
-   * @param {string} clientId - ID du client
-   * @returns {Promise<Object>} - { success }
-   */
   async deleteClient(clientId) {
     try {
-      await firestoreService.deleteDocument('clients', clientId);
+      await http.delete(`/clients/${clientId}`);
       return { success: true };
     } catch (error) {
-      throw new Error('Erreur lors de la suppression du client');
+      throw new Error(error.response?.data?.message || 'Erreur lors de la suppression du client');
     }
   }
 
-  /**
-   * Recherche de clients
-   * @param {string} query - Terme de recherche
-   * @returns {Promise<Array>} - Clients correspondants
-   */
   async searchClients(query) {
-    try {
-      const userId = this._getCurrentUserId();
-      if (!userId) {
-        throw new Error('Utilisateur non authentifié');
-      }
-
-      // Recherche dans Firestore (limitée aux champs indexés)
-      return await firestoreService.searchDocuments('clients', 'name', query, { userId });
-    } catch (error) {
-      throw new Error('Erreur lors de la recherche');
-    }
+    return this.getClients({ search: query });
   }
 
-  /**
-   * Statistiques des clients
-   * @returns {Promise<Object>} - Statistiques { total, active, totalDebt, etc. }
-   */
   async getClientStats() {
-    try {
-      const clients = await this.getClients();
-      const stats = {
-        total: clients.length,
-        active: clients.filter(c => c.status === 'active').length,
-        inactive: clients.filter(c => c.status === 'inactive').length,
-        totalDebt: clients.reduce((sum, c) => sum + (c.totalDebt || 0), 0),
-        averageDebt: 0
-      };
+    const clients = await this.getClients();
+    const active = clients.filter((client) => client.status === 'active').length;
+    const totalDebt = clients.reduce((sum, client) => sum + (client.totalDebt || 0), 0);
 
-      if (stats.total > 0) {
-        stats.averageDebt = Math.round(stats.totalDebt / stats.total);
-      }
-
-      return stats;
-    } catch (error) {
-      throw new Error('Erreur lors du calcul des statistiques');
-    }
-  }
-
-  /**
-   * Validation du numéro de téléphone sénégalais
-   * @param {string} phoneNumber - Numéro à valider
-   * @returns {boolean} - true si valide
-   */
-  _validatePhoneNumber(phoneNumber) {
-    if (!phoneNumber || phoneNumber.trim() === '') {
-      return false;
-    }
-
-    // Nettoyer le numéro (supprimer les espaces et le préfixe pays)
-    const cleaned = phoneNumber.replace(/\s+/g, '').replace(/^\+221/, '').replace(/^221/, '');
-
-    // Vérifier le format sénégalais
-    // Les préfixes valides sont: 70, 71, 75, 76, 77, 78 (opérateurs: Orange, Sonatel, etc)
-    const validPrefixes = ['70', '71', '75', '76', '77', '78'];
-    
-    // Le numéro doit avoir exactement 9 chiffres et commencer par un préfixe valide
-    return cleaned.length === 9 && validPrefixes.some(prefix => cleaned.startsWith(prefix));
-  }
-
-  /**
-   * Récupération de l'ID utilisateur actuel depuis Firebase Auth
-   * @returns {string} - ID utilisateur
-   */
-  _getCurrentUserId() {
-    try {
-      const userData = localStorage.getItem('auth_user');
-      if (userData) {
-        const user = JSON.parse(userData);
-        return user.id;
-      }
-      return null;
-    } catch (error) {
-      return null;
-    }
+    return {
+      total: clients.length,
+      active,
+      inactive: clients.length - active,
+      totalDebt,
+      averageDebt: clients.length ? Math.round(totalDebt / clients.length) : 0
+    };
   }
 }
 

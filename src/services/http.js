@@ -19,6 +19,17 @@ http.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+    const userData = localStorage.getItem('auth_user');
+    if (userData) {
+      try {
+        const user = JSON.parse(userData);
+        if (user?.tenantId) {
+          config.headers['x-tenant-id'] = user.tenantId;
+        }
+      } catch {
+        // Ignore malformed local data.
+      }
+    }
     return config;
   },
   (error) => {
@@ -32,7 +43,11 @@ http.interceptors.response.use(
     return response;
   },
   (error) => {
-    if (error.response?.status === 401) {
+    const authEndpoints = ['/auth/login', '/auth/register', '/auth/social'];
+    const requestUrl = error.config?.url || '';
+    const isAuthRequest = authEndpoints.some((endpoint) => requestUrl.includes(endpoint));
+
+    if (error.response?.status === 401 && !isAuthRequest) {
       // Token expiré ou invalide
       localStorage.removeItem('auth_token');
       // Redirection vers login si nécessaire

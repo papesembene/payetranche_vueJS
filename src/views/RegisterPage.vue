@@ -44,13 +44,36 @@
           {{ errors.general }}
         </div>
 
+        <div class="px-4 sm:px-6 pb-4 grid gap-3">
+          <div ref="googleButtonEl" class="min-h-[44px] w-full flex justify-center"></div>
+        </div>
+
+        <div class="px-4 sm:px-6 flex items-center gap-3">
+          <div class="h-px flex-1 bg-gray-200"></div>
+          <span class="text-xs font-semibold text-gray-400">OU</span>
+          <div class="h-px flex-1 bg-gray-200"></div>
+        </div>
+
         <!-- Form -->
         <form @submit.prevent="handleStepAction" class="p-4 sm:p-6 space-y-4">
-          <!-- Step 1: Name & Phone -->
+          <!-- Step 1: Business & Identity -->
           <div v-if="currentStep === 1" class="space-y-4">
             <div class="text-center mb-4 sm:mb-6">
               <User :size="48" :size-sm="64" class="text-teal-500 mx-auto mb-2 sm:mb-4" />
               <h3 class="text-base sm:text-lg font-semibold text-gray-900">Vos informations</h3>
+            </div>
+
+            <div>
+              <label for="businessName" class="block text-sm font-medium text-gray-700 mb-1.5 sm:mb-2">Nom de l’entreprise</label>
+              <input
+                id="businessName"
+                v-model="form.businessName"
+                type="text"
+                class="w-full px-3 py-2.5 sm:px-4 sm:py-3 border border-gray-300 rounded-lg sm:rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent text-base"
+                placeholder="Ex: Boutique Ndiaye"
+                :class="errors.businessName ? 'border-red-500' : ''"
+              />
+              <p v-if="errors.businessName" class="text-xs text-red-600 mt-1">{{ errors.businessName }}</p>
             </div>
 
             <div>
@@ -81,7 +104,7 @@
             </div>
           </div>
 
-          <!-- Step 2: PIN -->
+          <!-- Step 2: Account security -->
           <div v-if="currentStep === 2" class="space-y-4">
             <div class="text-center mb-4 sm:mb-6">
               <Lock :size="48" :size-sm="64" class="text-teal-500 mx-auto mb-2 sm:mb-4" />
@@ -89,32 +112,42 @@
             </div>
 
             <div>
-              <label for="pin" class="block text-sm font-medium text-gray-700 mb-1.5 sm:mb-2">Code PIN</label>
+              <label for="email" class="block text-sm font-medium text-gray-700 mb-1.5 sm:mb-2">Email professionnel</label>
               <input
-                id="pin"
-                v-model="form.pin"
-                type="password"
-                maxlength="4"
-                class="w-full px-3 py-2.5 sm:px-4 sm:py-3 text-center text-xl sm:text-2xl tracking-widest border border-gray-300 rounded-lg sm:rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                placeholder="____"
-                :class="errors.pin ? 'border-red-500' : ''"
+                id="email"
+                v-model="form.email"
+                type="email"
+                class="w-full px-3 py-2.5 sm:px-4 sm:py-3 border border-gray-300 rounded-lg sm:rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                placeholder="vous@entreprise.com"
+                :class="errors.email ? 'border-red-500' : ''"
               />
-              <p class="text-xs text-gray-500 mt-1 text-center">4 chiffres</p>
-              <p v-if="errors.pin" class="text-xs text-red-600 mt-1 text-center">{{ errors.pin }}</p>
+              <p v-if="errors.email" class="text-xs text-red-600 mt-1">{{ errors.email }}</p>
             </div>
 
             <div>
-              <label for="confirmPin" class="block text-sm font-medium text-gray-700 mb-1.5 sm:mb-2">Confirmer PIN</label>
+              <label for="password" class="block text-sm font-medium text-gray-700 mb-1.5 sm:mb-2">Mot de passe</label>
               <input
-                id="confirmPin"
-                v-model="form.confirmPin"
+                id="password"
+                v-model="form.password"
                 type="password"
-                maxlength="4"
-                class="w-full px-3 py-2.5 sm:px-4 sm:py-3 text-center text-xl sm:text-2xl tracking-widest border border-gray-300 rounded-lg sm:rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                placeholder="____"
-                :class="errors.confirmPin ? 'border-red-500' : ''"
+                class="w-full px-3 py-2.5 sm:px-4 sm:py-3 border border-gray-300 rounded-lg sm:rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                placeholder="Minimum 8 caractères"
+                :class="errors.password ? 'border-red-500' : ''"
               />
-              <p v-if="errors.confirmPin" class="text-xs text-red-600 mt-1 text-center">{{ errors.confirmPin }}</p>
+              <p v-if="errors.password" class="text-xs text-red-600 mt-1">{{ errors.password }}</p>
+            </div>
+
+            <div>
+              <label for="confirmPassword" class="block text-sm font-medium text-gray-700 mb-1.5 sm:mb-2">Confirmer le mot de passe</label>
+              <input
+                id="confirmPassword"
+                v-model="form.confirmPassword"
+                type="password"
+                class="w-full px-3 py-2.5 sm:px-4 sm:py-3 border border-gray-300 rounded-lg sm:rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                placeholder="Répétez le mot de passe"
+                :class="errors.confirmPassword ? 'border-red-500' : ''"
+              />
+              <p v-if="errors.confirmPassword" class="text-xs text-red-600 mt-1">{{ errors.confirmPassword }}</p>
             </div>
           </div>
 
@@ -202,7 +235,10 @@
         <div class="p-4 sm:p-6 pt-0">
           <p class="text-center text-sm text-gray-600">
             Déjà un compte ?
-            <router-link to="/login" class="text-teal-500 hover:text-teal-600 font-medium">
+            <router-link
+              :to="{ path: '/login', query: route.query.redirect ? { redirect: route.query.redirect } : {} }"
+              class="text-teal-500 hover:text-teal-600 font-medium"
+            >
               Se connecter
             </router-link>
           </p>
@@ -213,19 +249,23 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
-import { useRouter } from 'vue-router';
+import { onMounted, ref } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import { DollarSign, User, Lock, CheckCircle, Gift } from 'lucide-vue-next';
 import { useUser } from '../composables/useUser.js';
+import { authService } from '../services/auth.service.js';
 
 const router = useRouter();
-const { register } = useUser();
+const route = useRoute();
+const { register, googleCredentialLogin } = useUser();
 
 const form = ref({
+  businessName: '',
   name: '',
   phone: '',
-  pin: '',
-  confirmPin: '',
+  email: '',
+  password: '',
+  confirmPassword: '',
   acceptTerms: false
 });
 
@@ -233,9 +273,36 @@ const loading = ref(false);
 const errors = ref({});
 const currentStep = ref(1);
 const totalSteps = 3;
+const googleButtonEl = ref(null);
+
+const getRedirectPath = () => {
+  const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '';
+  if (!redirect.startsWith('/') || redirect.startsWith('//')) return '';
+  if (redirect === '/login' || redirect === '/register') return '';
+  return redirect;
+};
+
+const goAfterAuth = (user) => {
+  const redirectPath = getRedirectPath();
+  if (!user?.onboardingCompleted) {
+    if (redirectPath) {
+      localStorage.setItem('post_onboarding_redirect', redirectPath);
+    }
+    router.push('/onboarding');
+    return;
+  }
+
+  router.push(redirectPath || '/dashboard');
+};
 
 const validateName = (name) => {
   if (!name || name.trim() === '') return 'Le nom est requis';
+  if (name.trim().length < 2) return 'Au moins 2 caractères';
+  return null;
+};
+
+const validateBusinessName = (name) => {
+  if (!name || name.trim() === '') return 'Le nom de l’entreprise est requis';
   if (name.trim().length < 2) return 'Au moins 2 caractères';
   return null;
 };
@@ -250,9 +317,14 @@ const validatePhone = (phone) => {
   return null;
 };
 
-const validatePin = (pin) => {
-  if (!pin || pin.length !== 4) return '4 chiffres requis';
-  if (!/^\d{4}$/.test(pin)) return 'Que des chiffres';
+const validateEmail = (email) => {
+  if (!email || email.trim() === '') return 'L’email est requis';
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return 'Email invalide';
+  return null;
+};
+
+const validatePassword = (password) => {
+  if (!password || password.length < 8) return 'Minimum 8 caractères';
   return null;
 };
 
@@ -260,20 +332,25 @@ const handleStepAction = async () => {
   if (currentStep.value < totalSteps) {
     // Validation
     if (currentStep.value === 1) {
+      errors.value = {};
+      const businessNameError = validateBusinessName(form.value.businessName);
       const nameError = validateName(form.value.name);
       const phoneError = validatePhone(form.value.phone);
+      if (businessNameError) errors.value.businessName = businessNameError;
       if (nameError) errors.value.name = nameError;
       if (phoneError) errors.value.phone = phoneError;
-      if (nameError || phoneError) return;
+      if (businessNameError || nameError || phoneError) return;
     }
     if (currentStep.value === 2) {
-      const pinError = validatePin(form.value.pin);
-      if (pinError) {
-        errors.value.pin = pinError;
-        return;
+      errors.value = {};
+      const emailError = validateEmail(form.value.email);
+      const passwordError = validatePassword(form.value.password);
+      if (emailError) errors.value.email = emailError;
+      if (passwordError) errors.value.password = passwordError;
+      if (form.value.password !== form.value.confirmPassword) {
+        errors.value.confirmPassword = 'Les mots de passe ne correspondent pas';
       }
-      if (form.value.pin !== form.value.confirmPin) {
-        errors.value.confirmPin = 'Les PIN ne correspondent pas';
+      if (emailError || passwordError || errors.value.confirmPassword) {
         return;
       }
     }
@@ -290,13 +367,14 @@ const handleStepAction = async () => {
     loading.value = true;
     try {
       const result = await register({
+        businessName: form.value.businessName,
         name: form.value.name,
         phone: form.value.phone,
-        pin: form.value.pin
+        email: form.value.email,
+        password: form.value.password
       });
       if (result.success) {
-        alert('Compte créé ! Connectez-vous.');
-        router.push('/login');
+        goAfterAuth(result.user);
       } else {
         errors.value.general = 'Erreur: ' + result.error;
       }
@@ -308,11 +386,48 @@ const handleStepAction = async () => {
   }
 };
 
+const mountGoogleButton = async () => {
+  try {
+    await authService.renderGoogleButton(googleButtonEl.value, {
+      text: 'signup_with',
+      onCredential: async (credential) => {
+        errors.value = {};
+        loading.value = true;
+        try {
+          const result = await googleCredentialLogin(credential, {
+            companyName: form.value.businessName || undefined
+          });
+
+          if (result.success) {
+            goAfterAuth(result.user);
+          } else {
+            errors.value.general = result.error || 'Inscription Google impossible';
+          }
+        } finally {
+          loading.value = false;
+        }
+      },
+      onError: (message) => {
+        errors.value.general = message;
+      }
+    });
+  } catch (error) {
+    errors.value.general = error.message || 'Google Sign-In indisponible';
+  }
+};
+
+onMounted(async () => {
+  await mountGoogleButton();
+});
+
 const prevStep = () => {
   if (currentStep.value > 1) currentStep.value--;
 };
 
 const goToLogin = () => {
-  router.push('/login');
+  router.push({
+    path: '/login',
+    query: route.query.redirect ? { redirect: route.query.redirect } : {}
+  });
 };
 </script>

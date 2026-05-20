@@ -2,34 +2,66 @@
 import { ref, computed, onMounted } from 'vue';
 import DashboardHeader from '../components/dashboard/DashboardHeader.vue';
 import StatsCards from '../components/dashboard/StatsCards.vue';
+import DebtsView from '../components/dashboard/DebtsView.vue';
 import PaymentsView from '../components/dashboard/PaymentsView.vue';
 import ClientsView from '../components/dashboard/ClientsView.vue';
-import SubscriptionStatus from '../components/SubscriptionStatus.vue';
-import UpgradePrompt from '../components/UpgradePrompt.vue';
+import MoneyView from '../components/dashboard/MoneyView.vue';
 import { useUserStore } from '../stores/user.js';
 import { transactionService } from '../services/transaction.service.js';
 import { clientService } from '../services/client.service.js';
 import { safeFormatDate } from '../utils/export.js';
-import { AlertTriangle, X } from 'lucide-vue-next';
+import { AlertTriangle, X, CreditCard, DollarSign, Users, Wallet } from 'lucide-vue-next';
 
 const userStore = useUserStore();
 
 const user = computed(() => userStore.user);
-const currentPlan = computed(() => userStore.currentPlan);
 const loading = computed(() => userStore.loading);
 
-const activeTab = ref('payments');
+const activeTab = ref('debts');
 const refreshStats = ref(0);
 const overduePayments = ref([]);
 const showNotifications = ref(true);
+const contentSection = ref(null);
+
+const navItems = [
+  {
+    id: 'debts',
+    label: 'Clients qui doivent',
+    mobileLabel: 'Dettes',
+    helper: 'Voir les dettes, créer les tranches, envoyer un lien',
+    icon: CreditCard
+  },
+  {
+    id: 'payments',
+    label: 'Paiements reçus',
+    mobileLabel: 'Payés',
+    helper: 'Voir seulement l’argent déjà payé',
+    icon: DollarSign
+  },
+  {
+    id: 'clients',
+    label: 'Clients',
+    mobileLabel: 'Clients',
+    helper: 'Ajouter ou retrouver une personne',
+    icon: Users
+  },
+  {
+    id: 'money',
+    label: 'Mon argent',
+    mobileLabel: 'Argent',
+    helper: 'Compte Wave/OM et reversements vendeur',
+    icon: Wallet
+  }
+];
 
 const setActiveTab = (tab) => {
   activeTab.value = tab;
-};
-
-const handleUpgrade = () => {
-  // TODO: Ouvrir modale de sélection de plan
-  console.log('Ouvrir modale de mise à niveau');
+  requestAnimationFrame(() => {
+    contentSection.value?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'start'
+    });
+  });
 };
 
 const onClientSaved = () => {
@@ -86,7 +118,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="min-h-screen bg-gray-50">
+  <div class="min-h-screen bg-gray-50 pb-24 lg:pb-0">
     <DashboardHeader />
 
     <!-- Loading State -->
@@ -95,16 +127,13 @@ onMounted(() => {
     </div>
 
     <!-- Main Content -->
-    <main v-else class="max-w-7xl mx-auto px-6 lg:px-8 py-8">
-      <!-- Page Title -->
-      <div class="mb-8">
-        <h1 class="text-3xl font-bold text-gray-900 mb-2">Tableau de bord</h1>
-        <p class="text-gray-600">Gérez vos paiements et suivez vos clients</p>
+    <main v-else class="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 lg:py-8">
+      <div class="mb-4 lg:mb-6">
+        <h1 class="text-xl sm:text-3xl font-bold text-gray-950 leading-tight">PayTranche</h1>
       </div>
 
-      <!-- Overdue Payments Notification -->
       <div v-if="overduePayments.length > 0 && showNotifications" class="mb-6">
-        <div class="bg-red-50 border border-red-200 rounded-xl p-4">
+        <div class="bg-red-50 border border-red-200 rounded-lg p-4">
           <div class="flex items-start gap-3">
             <AlertTriangle :size="24" class="text-red-500 flex-shrink-0 mt-0.5" />
             <div class="flex-1">
@@ -138,60 +167,68 @@ onMounted(() => {
         </div>
       </div>
 
-      <!-- Upgrade Prompt -->
-      <div class="mb-6">
-        <UpgradePrompt @upgrade="handleUpgrade" />
-      </div>
-
-      <!-- Stats Cards -->
       <StatsCards :refresh="refreshStats" />
 
-      <!-- Subscription Status -->
-      <div class="mb-8">
-        <SubscriptionStatus @upgrade="handleUpgrade" />
-      </div>
+      <div class="grid lg:grid-cols-[300px_1fr] gap-6 items-start">
+        <aside class="hidden lg:block bg-white border border-gray-200 rounded-lg p-4 lg:sticky lg:top-6">
+          <div class="space-y-2">
+            <button
+              v-for="item in navItems"
+              :key="item.id"
+              @click="setActiveTab(item.id)"
+              :class="[
+                'w-full flex items-start gap-3 rounded-lg border px-3 py-3 text-left transition-colors',
+                activeTab === item.id
+                  ? 'border-teal-300 bg-teal-50 text-teal-900'
+                  : 'border-transparent hover:border-gray-200 hover:bg-gray-50 text-gray-700'
+              ]"
+            >
+              <span
+                :class="[
+                  'mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg',
+                  activeTab === item.id ? 'bg-teal-500 text-white' : 'bg-gray-100 text-gray-600'
+                ]"
+              >
+                <component :is="item.icon" :size="19" />
+              </span>
+              <span class="min-w-0 flex-1">
+                <span class="block font-semibold">{{ item.label }}</span>
+              </span>
+            </button>
+          </div>
+        </aside>
 
-      <!-- Tabs -->
-      <div class="flex gap-4 mb-6">
-        <button
-          @click="setActiveTab('payments')"
-          :class="[
-            'flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition-all',
-            activeTab === 'payments'
-              ? 'bg-teal-500 text-white shadow-md'
-              : 'bg-white text-gray-700 hover:bg-gray-50'
-          ]"
-        >
-          <DollarSign :size="20" />
-          Paiements
-        </button>
-        <button
-          @click="setActiveTab('clients')"
-          :class="[
-            'flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition-all',
-            activeTab === 'clients'
-              ? 'bg-teal-500 text-white shadow-md'
-              : 'bg-white text-gray-700 hover:bg-gray-50'
-          ]"
-        >
-          <Users :size="20" />
-          Clients
-        </button>
+        <section ref="contentSection" class="min-w-0 scroll-mt-4 lg:scroll-mt-6">
+          <DebtsView v-if="activeTab === 'debts'" :refresh="refreshStats" @updated="onPaymentsUpdated" />
+          <PaymentsView v-else-if="activeTab === 'payments'" :refresh="refreshStats" @saved="onPaymentSaved" @updated="onPaymentsUpdated" />
+          <ClientsView v-else-if="activeTab === 'clients'" :refresh="refreshStats" @saved="onClientSaved" />
+          <MoneyView v-else />
+        </section>
       </div>
-
-      <!-- Content -->
-      <PaymentsView v-if="activeTab === 'payments'" :refresh="refreshStats" @saved="onPaymentSaved" @updated="onPaymentsUpdated" />
-      <ClientsView v-else :refresh="refreshStats" @saved="onClientSaved" />
     </main>
+
+    <nav v-if="!loading && user" class="fixed inset-x-0 bottom-0 z-40 border-t border-gray-200 bg-white lg:hidden">
+      <div class="grid grid-cols-4">
+        <button
+          v-for="item in navItems"
+          :key="item.id"
+          @click="setActiveTab(item.id)"
+          :class="[
+            'flex min-h-[68px] flex-col items-center justify-center gap-1 px-1 text-xs font-semibold',
+            activeTab === item.id ? 'text-teal-600' : 'text-gray-500'
+          ]"
+        >
+          <span
+            :class="[
+              'flex h-8 w-8 items-center justify-center rounded-lg',
+              activeTab === item.id ? 'bg-teal-50' : 'bg-transparent'
+            ]"
+          >
+            <component :is="item.icon" :size="20" />
+          </span>
+          <span class="leading-none">{{ item.mobileLabel }}</span>
+        </button>
+      </div>
+    </nav>
   </div>
 </template>
-
-<script>
-import { DollarSign, Users } from 'lucide-vue-next';
-export default {
-  components: {
-    DollarSign,
-    Users
-  }
-};
-</script>

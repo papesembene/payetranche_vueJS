@@ -1,9 +1,8 @@
 <script setup>
 import { ref, watch } from 'vue';
-import { X, User, Phone, Home, CheckCircle, DollarSign } from 'lucide-vue-next';
+import { X, User, Phone, CreditCard } from 'lucide-vue-next';
 import Swal from 'sweetalert2';
 import { clientService } from '../../services/client.service.js';
-import { transactionService } from '../../services/transaction.service.js';
 import { useUserStore } from '../../stores/user.js';
 import { useUser } from '../../composables/useUser.js';
 
@@ -27,8 +26,10 @@ const form = ref({
   name: '',
   address: '',
   phone: '',
-  totalDebt: null, // Initialement null pour forcer l'utilisateur à entrer une valeur
-  acompte: 0 // acompte optionnel - montant déjà versé
+  totalDebt: 0,
+  acompte: 0,
+  dueDate: '',
+  description: ''
 });
 const loading = ref(false);
 const currentStep = ref(1);
@@ -40,8 +41,10 @@ const resetForm = () => {
     name: '',
     address: '',
     phone: '',
-    totalDebt: null, // Initialement null pour forcer l'utilisateur à entrer une valeur
-    acompte: 0 // acompte optionnel
+    totalDebt: 0,
+    acompte: 0,
+    dueDate: '',
+    description: ''
   };
 };
 
@@ -53,7 +56,9 @@ watch(() => props.client, (newClient) => {
       address: newClient.address || '',
       phone: newClient.phone || '',
       totalDebt: newClient.totalDebt || 0,
-      acompte: newClient.acompte || 0
+      acompte: newClient.acompte || 0,
+      dueDate: '',
+      description: ''
     };
   } else {
     resetForm();
@@ -73,7 +78,7 @@ watch(() => props.show, (show) => {
 watch(() => currentStep.value, (newStep) => {
   if (newStep === 1) speak('Étape 1: Entrez le nom du client');
   else if (newStep === 2) speak('Étape 2: Entrez le numéro de téléphone');
-  else if (newStep === 3) speak('Étape 3: Entrez l\'adresse, le montant de la dette et l\'acompte');
+  else if (newStep === 3) speak('Étape 3: Entrez le montant que le client doit');
 });
 
 
@@ -97,17 +102,16 @@ const handleStepAction = async () => {
       }
     }
     if (currentStep.value === 3) {
-      if (!form.value.address.trim()) {
-        alert('Veuillez entrer l\'adresse du client');
-        return;
-      }
       if (!form.value.totalDebt || form.value.totalDebt <= 0) {
-        alert('Le montant de la dette doit être supérieur à 0 FCFA. Un client sans dette n\'a pas de sens.');
+        alert('Entrez le montant que le client doit.');
         return;
       }
-      // Valider que l'acompte ne dépasse pas le total
+      if (form.value.acompte < 0) {
+        alert('L’acompte ne peut pas être négatif.');
+        return;
+      }
       if (form.value.acompte > form.value.totalDebt) {
-        alert('L\'acompte ne peut pas être supérieur au montant total de la dette.');
+        alert('L’acompte ne peut pas dépasser le montant total.');
         return;
       }
     }
@@ -149,18 +153,6 @@ const submitForm = async () => {
       // Force synchronization with real database count
       await syncUsageCounts();
 
-      // Si un acompte a été versé, créer une transaction pour l'enregistrer dans la liste des paiements
-      if (form.value.acompte > 0) {
-        await transactionService.createTransaction({
-          clientId: savedClient.value.id,
-          amount: form.value.acompte,
-          description: 'Acompte initial',
-          dueDate: new Date().toISOString().split('T')[0],
-          status: 'completed', // L'acompte est déjà payé
-          type: 'payment',
-          isInitialAcompte: true
-        });
-      }
     }
 
     // After saving, show success
@@ -271,7 +263,7 @@ const closeModal = () => {
           <div class="mb-4">
             <Phone :size="64" class="text-teal-500" />
           </div>
-          <h3 class="text-lg font-semibold text-gray-900 mb-4">Téléphone</h3>
+          <h3 class="text-lg font-semibold text-gray-900 mb-4">Téléphone du client</h3>
           <input
             v-model="form.phone"
             type="tel"
@@ -281,57 +273,65 @@ const closeModal = () => {
           />
         </div>
 
-        <!-- Step 3: Address, Debt and Deposit -->
+        <!-- Step 3: Initial Credit -->
         <div v-if="currentStep === 3" class="space-y-6">
           <div class="text-center mb-6">
             <div class="mb-4">
-              <Home :size="64" class="text-teal-500" />
+              <CreditCard :size="64" class="text-teal-500" />
             </div>
-            <h3 class="text-lg font-semibold text-gray-900 mb-4">Adresse, dette et acompte</h3>
+            <h3 class="text-lg font-semibold text-gray-900 mb-2">Ce que le client doit</h3>
+            <p class="text-sm text-gray-600">Notez le montant de la vente à crédit. Si le client donne une partie, mettez l’acompte.</p>
           </div>
 
           <div class="grid grid-cols-1 gap-6">
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-2">
-                Adresse domicile
-              </label>
-              <input
-                v-model="form.address"
-                type="text"
-                class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                placeholder="Dakar, Plateau"
-              />
-            </div>
-
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-2">
-                💰 Total dette (FCFA) <span class="text-red-500">*</span>
+                Montant total
               </label>
               <input
                 v-model.number="form.totalDebt"
                 type="number"
                 min="1"
-                step="any"
                 class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                placeholder="Obligatoire - minimum 1 FCFA"
+                placeholder="Ex: 10000"
                 required
               />
-              <p class="text-xs text-gray-500 mt-1">La dette doit être supérieure à 0 FCFA</p>
             </div>
 
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-2">
-                💵 Acompte déjà versé (FCFA)
+                Acompte reçu
               </label>
               <input
                 v-model.number="form.acompte"
                 type="number"
                 min="0"
-                step="any"
                 class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                placeholder="Optionnel - montant déjà versé"
+                placeholder="Ex: 5000"
               />
-              <p class="text-xs text-gray-500 mt-1">Montant déjà payé (acompte) - optionnel</p>
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">
+                Date limite
+              </label>
+              <input
+                v-model="form.dueDate"
+                type="date"
+                class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+              />
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">
+                Adresse ou note
+              </label>
+              <input
+                v-model="form.address"
+                type="text"
+                class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                placeholder="Ex: Dakar, Plateau"
+              />
             </div>
           </div>
         </div>
@@ -358,7 +358,7 @@ const closeModal = () => {
           :disabled="loading"
           class="flex-1 px-6 py-4 bg-teal-500 hover:bg-teal-600 disabled:bg-teal-300 text-white font-semibold text-lg rounded-xl transition-colors"
         >
-          {{ loading ? 'Création en cours...' : (currentStep === totalSteps ? (client ? 'Modifier' : 'Créer') : 'Suivant') }}
+          {{ loading ? 'Création en cours...' : (currentStep === totalSteps ? (client ? 'Modifier' : 'Enregistrer') : 'Suivant') }}
         </button>
       </div>
     </form>

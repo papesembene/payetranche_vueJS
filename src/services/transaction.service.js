@@ -1,290 +1,212 @@
-import { firestoreService } from './firestore.service.js';
-import { auth } from '../firebase.js';
+import { http } from './http.js';
 
-/**
- * Service de gestion des transactions/paiements avec Firestore
- * Responsabilités : CRUD transactions, historique, statistiques
- */
+const creditStatusToTransaction = (status) => {
+  if (status === 'PAYE') return 'completed';
+  if (status === 'EN_RETARD') return 'pending';
+  return 'pending';
+};
+
+const normalizeCredit = (credit) => ({
+  id: credit.id,
+  backendType: 'credit',
+  clientId: credit.clientId,
+  amount: credit.remainingAmount ?? credit.amount,
+  originalAmount: credit.amount,
+  paidAmount: credit.paidAmount || 0,
+  remainingAmount: credit.remainingAmount ?? Math.max((credit.amount || 0) - (credit.paidAmount || 0), 0),
+  description: credit.description || 'Crédit client',
+  dueDate: credit.dueDate,
+  status: creditStatusToTransaction(credit.status),
+  type: 'payment',
+  createdAt: credit.createdAt,
+  updatedAt: credit.updatedAt
+});
+
+const normalizePayment = (payment) => ({
+  id: payment.id,
+  backendType: 'payment',
+  clientId: payment.clientId,
+  creditId: payment.creditId,
+  amount: payment.amount,
+  description: payment.reference || 'Paiement reçu',
+  dueDate: null,
+  paymentDate: payment.paidAt,
+  status: payment.status === 'COMPLETED' ? 'completed' : 'pending',
+  type: 'payment',
+  createdAt: payment.createdAt,
+  updatedAt: payment.updatedAt
+});
+
 class TransactionService {
-  /**
-   * Récupération des transactions de l'utilisateur
-   * @param {Object} filters - Filtres { status, type, clientId, startDate, endDate, limit, offset }
-   * @returns {Promise<Array>} - Liste des transactions
-   */
   async getTransactions(filters = {}) {
     try {
-      const userId = this._getCurrentUserId();
-      if (!userId) {
-        throw new Error('Utilisateur non authentifié');
-      }
+      const [creditsResponse, paymentsResponse] = await Promise.all([
+        http.get('/credits?includePaid=true'),
+        http.get('/payments')
+      ]);
 
-      let queryOptions = { userId };
-      let whereConditions = [];
-
-      // Appliquer les filtres
-      if (filters.status) {
-        whereConditions.push({
-          field: 'status',
-          operator: '==',
-          value: filters.status
-        });
-      }
-
-      if (filters.type) {
-        whereConditions.push({
-          field: 'type',
-          operator: '==',
-          value: filters.type
-        });
-      }
+      let transactions = [
+        ...creditsResponse.data.data.map(normalizeCredit),
+        ...paymentsResponse.data.data.map(normalizePayment)
+      ];
 
       if (filters.clientId) {
-        whereConditions.push({
-          field: 'clientId',
-          operator: '==',
-          value: filters.clientId
-        });
+        transactions = transactions.filter((transaction) => transaction.clientId === filters.clientId);
       }
 
-      if (filters.startDate) {
-        whereConditions.push({
-          field: 'createdAt',
-          operator: '>=',
-          value: filters.startDate
-        });
+      if (filters.status) {
+        transactions = transactions.filter((transaction) => transaction.status === filters.status);
       }
 
-      if (filters.endDate) {
-        whereConditions.push({
-          field: 'createdAt',
-          operator: '<=',
-          value: filters.endDate
-        });
-      }
-
-      if (whereConditions.length > 0) {
-        queryOptions.where = whereConditions;
-      }
-
-      if (filters.limit) {
-        queryOptions.limit = filters.limit;
-      }
-
-      // Tri par défaut
-      queryOptions.orderBy = { field: 'createdAt', direction: 'desc' };
-
-      return await firestoreService.getCollection('transactions', queryOptions);
+      return transactions.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
     } catch (error) {
-      throw new Error('Erreur lors du chargement des transactions');
+      throw new Error(error.response?.data?.message || 'Erreur lors du chargement des transactions');
     }
   }
 
-  /**
-   * Récupération d'une transaction spécifique
-   * @param {string} transactionId - ID de la transaction
-   * @returns {Promise<Object>} - Détails de la transaction
-   */
   async getTransaction(transactionId) {
     try {
-      return await firestoreService.getDocument('transactions', transactionId);
+      const response = await http.get(`/credits/${transactionId}`);
+      return normalizeCredit(response.data.data);
     } catch (error) {
-      throw new Error('Erreur lors du chargement de la transaction');
+      throw new Error(error.response?.data?.message || 'Erreur lors du chargement de la transaction');
     }
   }
 
-  /**
-   * Création d'une nouvelle transaction
-   * @param {Object} transactionData - Données de la transaction
-   * @returns {Promise<Object>} - Transaction créée
-   */
+  async getCreditTimeline(creditId) {
+    try {
+      const response = await http.get(`/credits/${creditId}/timeline`);
+      return response.data.data || [];
+    } catch (error) {
+      throw new Error(error.response?.data?.message || 'Erreur lors du chargement de l’historique');
+    }
+  }
+
   async createTransaction(transactionData) {
     try {
-      const userId = this._getCurrentUserId();
-      if (!userId) {
-        throw new Error('Utilisateur non authentifié');
+      if (transactionData.status === 'completed') {
+        let creditId = transactionData.creditId;
+
+        if (!creditId) {
+          const creditsResponse = await http.get(`/credits?clientId=${transactionData.clientId}`);
+          const openCredit = creditsResponse.data.data.find((credit) => credit.remainingAmount > 0);
+          creditId = openCredit?.id;
+        }
+
+        if (!creditId) {
+          throw new Error('Aucun crédit actif trouvé pour ce client');
+        }
+
+        const response = await http.post('/payments', {
+          clientId: transactionData.clientId,
+          creditId,
+          amount: Number(transactionData.amount),
+          method: 'CASH',
+          status: 'COMPLETED',
+          reference: transactionData.description
+        });
+        return normalizePayment(response.data.data);
       }
 
-      const transactionDoc = {
-        ...transactionData,
-        userId,
-        status: transactionData.status || 'pending'
-      };
+      const response = await http.post('/credits', {
+        clientId: transactionData.clientId,
+        amount: Number(transactionData.amount),
+        paidAmount: 0,
+        description: transactionData.description,
+        dueDate: transactionData.dueDate
+          ? new Date(transactionData.dueDate).toISOString()
+          : undefined
+      });
 
-      return await firestoreService.createDocument('transactions', transactionDoc);
+      return normalizeCredit(response.data.data);
     } catch (error) {
-      throw new Error('Erreur lors de la création de la transaction');
+      throw new Error(error.response?.data?.message || 'Erreur lors de la création de la transaction');
     }
   }
 
-  /**
-   * Mise à jour d'une transaction
-   * @param {string} transactionId - ID de la transaction
-   * @param {Object} transactionData - Données à mettre à jour
-   * @returns {Promise<Object>} - Transaction mise à jour
-   */
   async updateTransaction(transactionId, transactionData) {
     try {
-      return await firestoreService.updateDocument('transactions', transactionId, transactionData);
+      const payload = {};
+      if (transactionData.amount !== undefined) payload.amount = Number(transactionData.amount);
+      if (transactionData.description !== undefined) payload.description = transactionData.description;
+      if (transactionData.dueDate !== undefined) {
+        payload.dueDate = transactionData.dueDate ? new Date(transactionData.dueDate).toISOString() : null;
+      }
+      if (transactionData.status === 'completed') payload.status = 'PAYE';
+
+      const response = await http.patch(`/credits/${transactionId}`, payload);
+      return normalizeCredit(response.data.data);
     } catch (error) {
-      throw new Error('Erreur lors de la mise à jour de la transaction');
+      throw new Error(error.response?.data?.message || 'Erreur lors de la mise à jour de la transaction');
     }
   }
 
-  /**
-   * Suppression d'une transaction
-   * @param {string} transactionId - ID de la transaction
-   * @returns {Promise<Object>} - { success }
-   */
   async deleteTransaction(transactionId) {
     try {
-      await firestoreService.deleteDocument('transactions', transactionId);
+      await http.delete(`/credits/${transactionId}`);
       return { success: true };
     } catch (error) {
-      throw new Error('Erreur lors de la suppression de la transaction');
+      throw new Error(error.response?.data?.message || 'Erreur lors de la suppression de la transaction');
     }
   }
 
-  /**
-   * Marquage d'une transaction comme payée
-   * @param {string} transactionId - ID de la transaction
-   * @param {Object} paymentData - Données du paiement { amount, paymentDate }
-   * @returns {Promise<Object>} - Transaction mise à jour
-   */
   async markAsPaid(transactionId, paymentData = {}) {
     try {
-      const updateData = {
-        status: 'completed',
-        paymentDate: paymentData.paymentDate || new Date().toISOString(),
-        ...paymentData
-      };
-      return await this.updateTransaction(transactionId, updateData);
+      const creditResponse = await http.get(`/credits/${transactionId}`);
+      const credit = creditResponse.data.data;
+      const amount = Number(paymentData.amount || credit.remainingAmount || credit.amount);
+
+      const response = await http.post('/payments', {
+        clientId: credit.clientId,
+        creditId: credit.id,
+        amount,
+        method: 'CASH',
+        status: 'COMPLETED',
+        reference: paymentData.description || 'Paiement'
+      });
+
+      return normalizePayment(response.data.data);
     } catch (error) {
-      throw new Error('Erreur lors du marquage comme payé');
+      throw new Error(error.response?.data?.message || 'Erreur lors du marquage comme payé');
     }
   }
 
-  /**
-   * Récupération des transactions en retard
-   * @returns {Promise<Array>} - Transactions en retard
-   */
   async getOverdueTransactions() {
-    try {
-      const userId = this._getCurrentUserId();
-      if (!userId) {
-        throw new Error('Utilisateur non authentifié');
-      }
+    const transactions = await this.getTransactions({ status: 'pending' });
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
-      // Récupérer toutes les transactions pending
-      const pendingTransactions = await firestoreService.getCollection('transactions', {
-        userId,
-        where: [{ field: 'status', operator: '==', value: 'pending' }],
-        orderBy: { field: 'createdAt', direction: 'desc' }
-      });
-
-      // Filtrer côté client les transactions en retard
-      const today = new Date();
-      today.setHours(0, 0, 0, 0); // Début de journée
-
-      const overdueTransactions = pendingTransactions.filter(transaction => {
-        if (!transaction.dueDate) return false;
-
-        const dueDate = new Date(transaction.dueDate);
-        dueDate.setHours(0, 0, 0, 0); // Début de journée
-
-        return dueDate < today;
-      });
-
-      return overdueTransactions;
-    } catch (error) {
-      throw new Error('Erreur lors du chargement des transactions en retard');
-    }
+    return transactions.filter((transaction) => {
+      if (!transaction.dueDate) return false;
+      const dueDate = new Date(transaction.dueDate);
+      dueDate.setHours(0, 0, 0, 0);
+      return dueDate < today;
+    });
   }
 
-  /**
-   * Statistiques des transactions
-   * @param {Object} dateRange - Plage de dates { startDate, endDate }
-   * @returns {Promise<Object>} - Statistiques détaillées
-   */
   async getTransactionStats(dateRange = {}) {
-    try {
-      const transactions = await this.getTransactions(dateRange);
+    const transactions = await this.getTransactions(dateRange);
+    const completed = transactions.filter((transaction) => transaction.status === 'completed');
+    const pending = transactions.filter((transaction) => transaction.status === 'pending');
+    const overdue = await this.getOverdueTransactions();
 
-      // Calculer les transactions en retard
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-
-      const overdueCount = transactions.filter(t => {
-        if (t.status !== 'pending' || !t.dueDate) return false;
-        const dueDate = new Date(t.dueDate);
-        dueDate.setHours(0, 0, 0, 0);
-        return dueDate < today;
-      }).length;
-
-      const stats = {
-        total: transactions.length,
-        completed: transactions.filter(t => t.status === 'completed').length,
-        pending: transactions.filter(t => t.status === 'pending').length,
-        overdue: overdueCount,
-        totalAmount: transactions.reduce((sum, t) => sum + (t.amount || 0), 0),
-        completedAmount: transactions
-          .filter(t => t.status === 'completed')
-          .reduce((sum, t) => sum + (t.amount || 0), 0),
-        pendingAmount: transactions
-          .filter(t => t.status === 'pending')
-          .reduce((sum, t) => sum + (t.amount || 0), 0)
-      };
-
-      return stats;
-    } catch (error) {
-      throw new Error('Erreur lors du calcul des statistiques');
-    }
+    return {
+      total: transactions.length,
+      completed: completed.length,
+      pending: pending.length,
+      overdue: overdue.length,
+      totalAmount: transactions.reduce((sum, transaction) => sum + (transaction.amount || 0), 0),
+      completedAmount: completed.reduce((sum, transaction) => sum + (transaction.amount || 0), 0),
+      pendingAmount: pending.reduce((sum, transaction) => sum + (transaction.amount || 0), 0)
+    };
   }
 
-  /**
-   * Transactions par client
-   * @param {string} clientId - ID du client
-   * @returns {Promise<Array>} - Transactions du client
-   */
   async getTransactionsByClient(clientId) {
-    try {
-      return await this.getTransactions({ clientId });
-    } catch (error) {
-      throw new Error('Erreur lors du chargement des transactions du client');
-    }
+    return this.getTransactions({ clientId });
   }
 
-  /**
-   * Export des transactions
-   * @param {Object} filters - Filtres d'export
-   * @returns {Promise<Blob>} - Fichier d'export
-   */
-  async exportTransactions(filters = {}) {
-    try {
-      const params = new URLSearchParams({ ...filters, export: 'true' });
-      const response = await http.get(`/transactions/export?${params}`, {
-        responseType: 'blob'
-      });
-      return response.data;
-    } catch (error) {
-      throw new Error('Erreur lors de l\'export des transactions');
-    }
-  }
-
-  /**
-   * Récupération de l'ID utilisateur actuel depuis Firebase Auth
-   * @returns {string} - ID utilisateur
-   */
-  _getCurrentUserId() {
-    try {
-      const userData = localStorage.getItem('auth_user');
-      if (userData) {
-        const user = JSON.parse(userData);
-        return user.id;
-      }
-      return null;
-    } catch (error) {
-      return null;
-    }
+  async exportTransactions() {
+    throw new Error('Export non disponible via le backend pour le moment');
   }
 }
 

@@ -8,7 +8,7 @@ import { useUser } from './composables/useUser.js';
 
 const route = useRoute();
 const { initAuth } = useUser();
-const showNavAndFooter = computed(() => route.name !== 'Login' && route.name !== 'Register' && route.name !== 'Dashboard' && route.name !== 'Settings' && route.name !== 'PaymentSuccess');
+const showNavAndFooter = computed(() => !['Login', 'Register', 'Onboarding', 'Dashboard', 'Settings', 'Admin', 'PaymentSuccess'].includes(route.name));
 
 // Initialiser l'authentification au montage de l'app
 onMounted(async () => {

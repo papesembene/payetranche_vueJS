@@ -58,12 +58,12 @@ watch(() => props.show, async (show) => {
 
 // Vérifier s'il y a des paiements en attente
 const hasPendingPayments = computed(() => {
-  return clientTransactions.value.some(t => t.status === 'pending');
+  return clientTransactions.value.some(t => t.backendType === 'payment' && t.status === 'pending');
 });
 
 // Nombre de paiements en attente
 const pendingPaymentsCount = computed(() => {
-  return clientTransactions.value.filter(t => t.status === 'pending').length;
+  return clientTransactions.value.filter(t => t.backendType === 'payment' && t.status === 'pending').length;
 });
 
 // Helper function to parse formatted amount
@@ -172,13 +172,7 @@ const handleSubmit = async () => {
 
   loading.value = true;
   try {
-    if (paymentData.value.isInstallment && paymentData.value.installmentCount > 1) {
-      // Créer plusieurs transactions pour les tranches
-      await createInstallments();
-    } else {
-      // Créer une transaction simple
-      await createSinglePayment();
-    }
+    await createSinglePayment();
 
     // Synchronize with actual completed payments count from database
     // (new payments are 'pending', only 'completed' ones count toward usage limit)
@@ -195,21 +189,14 @@ const handleSubmit = async () => {
 };
 
 const createSinglePayment = async () => {
-  // Use calculated amount for installments with 1 tranche, otherwise use user input
-  const amount = paymentData.value.isInstallment
-    ? totalInstallmentAmount.value
-    : parseFloat(paymentData.value.amount);
-
-  // Pour les paiements simples (sans tranches), marquer comme payé
-  // Pour les tranches ou paiements avec date d'échéance, marquer comme en attente
-  const status = paymentData.value.isInstallment ? 'pending' : 'completed';
+  const amount = parseFloat(paymentData.value.amount);
 
   await transactionService.createTransaction({
     clientId: props.client.id,
     amount: amount,
     description: paymentData.value.description || 'Paiement',
-    dueDate: paymentData.value.dueDate || null,
-    status: status,
+    dueDate: null,
+    status: 'completed',
     type: 'payment'
   });
 };
@@ -283,7 +270,7 @@ const today = new Date().toISOString().split('T')[0];
     <div class="bg-white rounded-2xl shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
       <!-- Header -->
       <div class="flex items-center justify-between p-6 border-b border-gray-200">
-        <h2 class="text-xl font-bold text-gray-900">Ajouter un paiement</h2>
+        <h2 class="text-xl font-bold text-gray-900">Encaisser un paiement</h2>
         <button @click="closeForm" class="p-2 hover:bg-gray-100 rounded-lg transition-colors">
           <X :size="20" class="text-gray-500" />
         </button>
@@ -324,7 +311,7 @@ const today = new Date().toISOString().split('T')[0];
         </div>
 
         <!-- Amount -->
-        <div>
+        <div v-if="false">
           <label for="amount" class="block text-sm font-semibold text-gray-700 mb-2">
             Montant du paiement
           </label>
@@ -385,7 +372,7 @@ const today = new Date().toISOString().split('T')[0];
         </div>
 
         <!-- Installment Toggle -->
-        <div class="border-t border-gray-200 pt-6">
+        <div v-if="false" class="border-t border-gray-200 pt-6">
           <label class="flex items-center gap-3 cursor-pointer">
             <input
               v-model="paymentData.isInstallment"
@@ -455,7 +442,7 @@ const today = new Date().toISOString().split('T')[0];
             :disabled="loading || !canAddPayment || hasPendingPayments"
             class="flex-1 px-4 py-3 bg-teal-500 hover:bg-teal-600 text-white font-semibold rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {{ loading ? 'Création en cours...' : paymentData.isInstallment && paymentData.installmentCount > 1 ? 'Créer les tranches' : 'Créer le paiement' }}
+            {{ loading ? 'Encaissement...' : 'Encaisser' }}
           </button>
         </div>
       </form>

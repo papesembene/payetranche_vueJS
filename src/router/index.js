@@ -2,24 +2,22 @@ import { createRouter, createWebHistory } from 'vue-router';
 import HomePage from '../views/HomePage.vue';
 import LoginPage from '../views/LoginPage.vue';
 import RegisterPage from '../views/RegisterPage.vue';
+import OnboardingPage from '../views/OnboardingPage.vue';
+import AdminPage from '../views/AdminPage.vue';
 import DashboardPage from '../views/DashboardPage.vue';
 import SettingsPage from '../views/SettingsPage.vue';
 import PaymentSuccessPage from '../views/PaymentSuccessPage.vue';
-import { useUserStore } from '../stores/user.js';
-import { authService } from '../services/auth.service.js';
+import PaymentCancelPage from '../views/PaymentCancelPage.vue';
 
 // Navigation guard for authentication and subscription checks
-const requireAuth = (to, from, next) => {
-  // Vérifier d'abord le localStorage pour une détection rapide
+const readStoredUser = () => {
   const userData = localStorage.getItem('auth_user');
-  
+
   if (userData) {
     try {
       const user = JSON.parse(userData);
       if (user && user.id) {
-        // Utilisateur trouvé dans localStorage
-        next();
-        return;
+        return user;
       }
     } catch (error) {
       console.warn('❌ Invalid user data in localStorage');
@@ -28,9 +26,65 @@ const requireAuth = (to, from, next) => {
     }
   }
 
-  // Pas d'authentification trouvée
+  return null;
+};
+
+const redirectToLogin = (to, next) => {
   console.warn('⚠️ Utilisateur non authentifié, redirection vers login');
-  next('/login');
+  next({
+    path: '/login',
+    query: { redirect: to.fullPath }
+  });
+};
+
+const handleIncompleteOnboarding = (user, to, next) => {
+  if (to.path !== '/onboarding' && user.onboardingCompleted === false) {
+    localStorage.setItem('post_onboarding_redirect', to.fullPath);
+    next('/onboarding');
+    return true;
+  }
+
+  return false;
+};
+
+const adminEmails = (import.meta.env.VITE_PLATFORM_ADMIN_EMAILS || '')
+  .split(',')
+  .map((email) => email.trim().toLowerCase())
+  .filter(Boolean);
+
+const isPlatformAdmin = (user) =>
+  import.meta.env.VITE_ALLOW_DEV_ADMIN === 'true' ||
+  adminEmails.includes(user?.email?.toLowerCase());
+
+const requireAuth = (to, from, next) => {
+  const user = readStoredUser();
+
+  if (!user) {
+    redirectToLogin(to, next);
+    return;
+  }
+
+  if (handleIncompleteOnboarding(user, to, next)) return;
+
+  next();
+};
+
+const requirePlatformAdmin = (to, from, next) => {
+  const user = readStoredUser();
+
+  if (!user) {
+    redirectToLogin(to, next);
+    return;
+  }
+
+  if (handleIncompleteOnboarding(user, to, next)) return;
+
+  if (!isPlatformAdmin(user)) {
+    next('/dashboard');
+    return;
+  }
+
+  next();
 };
 
 const routes = [
@@ -50,10 +104,22 @@ const routes = [
     component: RegisterPage
   },
   {
+    path: '/onboarding',
+    name: 'Onboarding',
+    component: OnboardingPage,
+    beforeEnter: requireAuth
+  },
+  {
     path: '/dashboard',
     name: 'Dashboard',
     component: DashboardPage,
     beforeEnter: requireAuth
+  },
+  {
+    path: '/admin',
+    name: 'Admin',
+    component: AdminPage,
+    beforeEnter: requirePlatformAdmin
   },
   {
     path: '/settings',
@@ -65,6 +131,11 @@ const routes = [
     path: '/payment/success',
     name: 'PaymentSuccess',
     component: PaymentSuccessPage
+  },
+  {
+    path: '/payment/cancel',
+    name: 'PaymentCancel',
+    component: PaymentCancelPage
   }
 ];
 

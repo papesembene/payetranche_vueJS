@@ -1,295 +1,338 @@
-import { db } from '../firebase.js';
-import { doc, getDoc, setDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import { http } from './http.js';
+import { auth } from '../firebase.js';
+import {
+  getRedirectResult,
+  GoogleAuthProvider,
+  onAuthStateChanged,
+  signInWithPopup,
+  signInWithRedirect
+} from 'firebase/auth';
 
-/**
- * Service d'authentification avec Code PIN
- * Sécurité : PIN hashé avec salt pour protéger les données utilisateurs
- */
+const cleanPhone = (phoneNumber = '') =>
+  phoneNumber.replace(/\s+/g, '').replace(/^\+221/, '').replace(/^221/, '');
+
+const phoneToEmail = (phoneNumber) => `${cleanPhone(phoneNumber)}@paytranche.local`;
+
+const pinToPassword = (pin) => `${pin}${pin}`;
+
+const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+
+const backendPlanToFrontendPlan = (plan) => {
+  const plans = {
+    GRATUIT: 'free',
+    PRO: 'pro',
+    ENTREPRISE: 'enterprise'
+  };
+  return plans[plan] || 'free';
+};
+
+const normalizeUser = (user, tenant = null) => {
+  const plan = backendPlanToFrontendPlan(user.plan);
+
+  return {
+    ...user,
+    tenantId: user.tenantId || tenant?.id,
+    phone: user.phone || (user.email?.endsWith('@paytranche.local') ? user.email.replace('@paytranche.local', '') : ''),
+    onboardingCompleted: Boolean(user.onboardingCompleted),
+    avatar: user.name?.charAt(0)?.toUpperCase() || 'U',
+    subscription: {
+      id: `sub_${user.id}`,
+      plan,
+      status: 'active',
+      currentPeriodStart: user.createdAt || new Date().toISOString(),
+      currentPeriodEnd: user.planExpiresAt || null,
+      cancelAtPeriodEnd: false,
+      trialEnd: null,
+      recurringPayment: false
+    },
+    usage: {
+      clients: 0,
+      payments: 0,
+      totalAmount: 0
+    }
+  };
+};
+
+const socialAuthErrorMessage = (error, providerName) => {
+  const providerLabel = 'Google';
+  const currentHost = window.location.host || 'localhost';
+
+  const messages = {
+    'auth/popup-blocked': `La fenêtre ${providerLabel} a été bloquée. Autorisez les popups pour ${currentHost} puis réessayez.`,
+    'auth/popup-closed-by-user': `Connexion ${providerLabel} annulée. Cliquez sur le bouton et terminez la connexion dans la fenêtre ouverte.`,
+    'auth/cancelled-popup-request': `Une connexion ${providerLabel} est déjà en cours. Fermez l’autre fenêtre puis réessayez.`,
+    'auth/operation-not-allowed': `${providerLabel} n’est pas encore activé dans Firebase Authentication.`,
+    'auth/unauthorized-domain': 'Le domaine localhost n’est pas autorisé dans Firebase Authentication.',
+    'auth/account-exists-with-different-credential': 'Un compte existe déjà avec cet email. Connectez-vous avec la méthode utilisée au départ.',
+    'auth/popup-timeout': `Connexion ${providerLabel} bloquée après le choix du compte. Fermez la fenêtre ${providerLabel}, rechargez la page, puis réessayez.`
+  };
+
+  if (error?.code === 'ERR_NETWORK') {
+    return 'Connexion Google réussie, mais le backend PayTranche ne répond pas. Vérifiez que le backend tourne sur localhost:8000.';
+  }
+
+  if (error?.code === 'ECONNABORTED') {
+    return 'Connexion Google réussie, mais le backend PayTranche met trop de temps à répondre.';
+  }
+
+  return messages[error?.code] || error.response?.data?.message || error.message || `Connexion ${providerLabel} impossible`;
+};
+
 class AuthService {
-  /**
-   * Connexion avec vérification du Code PIN
-   * @param {Object} credentials - { phone, pin }
-   * @returns {Promise<Object>} - { success, user }
-   */
+  getSocialProvider(providerName) {
+    if (providerName !== 'google') {
+      throw new Error('Seule la connexion Google est disponible.');
+    }
+
+    const provider = new GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: 'select_account' });
+
+    return provider;
+  }
+
+  persistAuthSession(token, user, tenant = null) {
+    const safeUser = normalizeUser(user, tenant);
+    localStorage.setItem('auth_token', token);
+    localStorage.setItem('auth_user', JSON.stringify(safeUser));
+    return safeUser;
+  }
+
+  rememberSocialAuth(providerName, options = {}) {
+    localStorage.setItem('social_auth_provider', providerName);
+    if (options.companyName) {
+      localStorage.setItem('social_auth_company_name', options.companyName);
+    } else {
+      localStorage.removeItem('social_auth_company_name');
+    }
+  }
+
+  clearSocialAuthMemory() {
+    localStorage.removeItem('social_auth_provider');
+    localStorage.removeItem('social_auth_company_name');
+  }
+
+  waitForFirebaseUser(timeoutMs = 2500) {
+    if (auth.currentUser) return Promise.resolve(auth.currentUser);
+
+    return new Promise((resolve) => {
+      let unsubscribe = () => {};
+      const timeout = window.setTimeout(() => {
+        unsubscribe();
+        resolve(null);
+      }, timeoutMs);
+
+      unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+        window.clearTimeout(timeout);
+        unsubscribe();
+        resolve(firebaseUser || null);
+      });
+    });
+  }
+
+  async signInWithPopupOrState(provider) {
+    const popupResult = signInWithPopup(auth, provider)
+      .then((result) => ({ user: result.user }))
+      .catch((error) => ({ error }));
+
+    const authStateResult = this.waitForFirebaseUser(30000)
+      .then((user) => ({ user }));
+
+    const firstResult = await Promise.race([popupResult, authStateResult]);
+    const firebaseUser = firstResult.user || auth.currentUser || await this.waitForFirebaseUser(1500);
+
+    if (firebaseUser) {
+      return firebaseUser;
+    }
+
+    if (firstResult.error) {
+      throw firstResult.error;
+    }
+
+    const timeoutError = new Error('Popup authentication timed out');
+    timeoutError.code = 'auth/popup-timeout';
+    throw timeoutError;
+  }
+
+  async completeFirebaseUser(firebaseUser, companyName) {
+    const idToken = await firebaseUser.getIdToken(true);
+    const response = await http.post('/auth/social', {
+      idToken,
+      provider: 'firebase',
+      companyName
+    });
+
+    this.clearSocialAuthMemory();
+
+    const { token, user, tenant } = response.data.data;
+    const safeUser = this.persistAuthSession(token, user, tenant);
+
+    return { success: true, user: safeUser };
+  }
+
+  async loginWithGoogleCredential(idToken, options = {}) {
+    try {
+      const response = await http.post('/auth/social', {
+        idToken,
+        provider: 'google',
+        companyName: options.companyName
+      });
+
+      const { token, user, tenant } = response.data.data;
+      const safeUser = this.persistAuthSession(token, user, tenant);
+
+      return { success: true, user: safeUser };
+    } catch (error) {
+      throw new Error(socialAuthErrorMessage(error, 'google'));
+    }
+  }
+
+  loadGoogleIdentityScript() {
+    if (window.google?.accounts?.id) {
+      return Promise.resolve();
+    }
+
+    return new Promise((resolve, reject) => {
+      const existingScript = document.getElementById('google-identity-services');
+      if (existingScript) {
+        existingScript.addEventListener('load', resolve, { once: true });
+        existingScript.addEventListener('error', reject, { once: true });
+        return;
+      }
+
+      const script = document.createElement('script');
+      script.id = 'google-identity-services';
+      script.src = 'https://accounts.google.com/gsi/client';
+      script.async = true;
+      script.defer = true;
+      script.onload = resolve;
+      script.onerror = () => reject(new Error('Impossible de charger Google Sign-In'));
+      document.head.appendChild(script);
+    });
+  }
+
+  async renderGoogleButton(container, options = {}) {
+    if (!container) return;
+    if (!googleClientId) {
+      throw new Error('Google Sign-In n’est pas configuré');
+    }
+
+    await this.loadGoogleIdentityScript();
+    container.innerHTML = '';
+
+    window.google.accounts.id.initialize({
+      client_id: googleClientId,
+      callback: (response) => {
+        if (!response?.credential) {
+          options.onError?.('Google n’a pas renvoyé de jeton de connexion.');
+          return;
+        }
+        options.onCredential?.(response.credential);
+      }
+    });
+
+    window.google.accounts.id.renderButton(container, {
+      type: 'standard',
+      theme: 'outline',
+      size: 'large',
+      shape: 'rectangular',
+      text: options.text || 'continue_with',
+      logo_alignment: 'left',
+      width: Math.min(container.clientWidth || 360, 400)
+    });
+  }
+
   async login(credentials) {
     try {
-      const phoneNumber = credentials.phone;
-      const pin = credentials.pin;
+      const email = credentials.email || phoneToEmail(credentials.phone);
+      const password = credentials.password || pinToPassword(credentials.pin);
 
-      // Validation du numéro
-      if (!this._validatePhoneNumber(phoneNumber)) {
-        throw new Error('Numéro de téléphone invalide');
-      }
+      const response = await http.post('/auth/login', { email, password });
 
-      // Vérification du PIN requis
-      if (!pin || pin.length !== 4) {
-        throw new Error('Code PIN requis (4 chiffres)');
-      }
+      const { token, user } = response.data.data;
+      const safeUser = this.persistAuthSession(token, user);
 
-      // Récupérer l'utilisateur
-      const userData = await this._getUserByPhone(phoneNumber);
-      
-      if (!userData) {
-        throw new Error('Compte non trouve. Veuillez vous inscrire.');
-      }
-
-      // Vérifier le PIN
-      if (!this._verifyPin(pin, userData.pinHash)) {
-        throw new Error('Code PIN incorrect');
-      }
-
-      // Sauvegarder localement (sans le hash du PIN)
-      const { pinHash, ...safeUserData } = userData;
-      localStorage.setItem('auth_user', JSON.stringify(safeUserData));
-
-      return {
-        success: true,
-        user: safeUserData
-      };
+      return { success: true, user: safeUser };
     } catch (error) {
-      throw new Error(error.message || 'Erreur de connexion');
+      throw new Error(error.response?.data?.message || error.message || 'Erreur de connexion');
     }
   }
 
-  /**
-   * Inscription d'un nouvel utilisateur avec Code PIN
-   * @param {Object} userData - { name, phone, pin }
-   * @returns {Promise<Object>} - { success, user }
-   */
   async register(userData) {
     try {
-      const phoneNumber = userData.phone;
-      const pin = userData.pin;
+      const phone = userData.phone ? cleanPhone(userData.phone) : '';
+      const response = await http.post('/auth/register', {
+        companyName: userData.companyName || userData.businessName || userData.name || `Entreprise ${phone}`,
+        name: userData.name,
+        phone: userData.phone ? cleanPhone(userData.phone) : undefined,
+        email: userData.email || phoneToEmail(phone),
+        password: userData.password || pinToPassword(userData.pin)
+      });
 
-      // Validation du numéro
-      if (!this._validatePhoneNumber(phoneNumber)) {
-        throw new Error('Numéro de téléphone invalide');
-      }
+      const { token, user, tenant } = response.data.data;
+      const safeUser = this.persistAuthSession(token, user, tenant);
 
-      // Validation du PIN (4 chiffres)
-      if (!pin || pin.length !== 4 || !/^\d{4}$/.test(pin)) {
-        throw new Error('Le code PIN doit contenir exactement 4 chiffres');
-      }
-
-      // Vérifier si l'utilisateur existe déjà
-      const existingUser = await this._getUserByPhone(phoneNumber);
-      if (existingUser) {
-        throw new Error('Un compte avec ce numéro existe déjà');
-      }
-
-      // Créer le nouvel utilisateur avec PIN hashé
-      const userId = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      const pinHash = this._hashPin(pin);
-      
-      const defaultUserData = {
-        id: userId,
-        phone: phoneNumber,
-        name: userData.name || `Utilisateur ${phoneNumber.slice(-4)}`,
-        pinHash: pinHash,
-        avatar: userData.name ? userData.name.charAt(0).toUpperCase() : 'U',
-        createdAt: new Date().toISOString(),
-        subscription: {
-          id: `sub_${Date.now()}`,
-          plan: "free",
-          status: "active",
-          currentPeriodStart: new Date().toISOString(),
-          currentPeriodEnd: null,
-          cancelAtPeriodEnd: false,
-          trialEnd: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
-          recurringPayment: false,
-          paydunyaToken: null
-        },
-        usage: {
-          clients: 0,
-          payments: 0,
-          totalAmount: 0
-        }
-      };
-
-      await setDoc(doc(db, 'users', userId), defaultUserData);
-
-      // Sauvegarder localement (sans le hash du PIN)
-      const { pinHash: _, ...safeUserData } = defaultUserData;
-      localStorage.setItem('auth_user', JSON.stringify(safeUserData));
-
-      return {
-        success: true,
-        user: safeUserData
-      };
+      return { success: true, user: safeUser };
     } catch (error) {
-      throw new Error(error.message || 'Erreur lors de l\'inscription');
+      throw new Error(error.response?.data?.message || error.message || 'Erreur lors de l’inscription');
     }
   }
 
-  /**
-   * Déconnexion
-   * @returns {Promise<Object>} - { success }
-   */
-  async logout() {
+  async loginWithSocial(providerName, options = {}) {
     try {
-      // Nettoyer les données locales
-      localStorage.removeItem('auth_user');
-      return { success: true };
+      this.rememberSocialAuth(providerName, options);
+      const provider = this.getSocialProvider(providerName);
+
+      if (options.usePopup !== true) {
+        await signInWithRedirect(auth, provider);
+        return { success: true, pendingRedirect: true };
+      }
+
+      const firebaseUser = await this.signInWithPopupOrState(provider);
+      return await this.completeFirebaseUser(firebaseUser, options.companyName);
     } catch (error) {
-      return { success: true };
+      this.clearSocialAuthMemory();
+      throw new Error(socialAuthErrorMessage(error, providerName));
     }
   }
 
-  /**
-   * Vérification du token d'authentification
-   * @returns {Promise<Object>} - { valid, user? }
-   */
+  async completeSocialRedirect() {
+    try {
+      const result = await getRedirectResult(auth);
+      const firebaseUser = result?.user || await this.waitForFirebaseUser();
+
+      if (!firebaseUser) {
+        return { success: false, pendingRedirect: false };
+      }
+
+      const companyName = localStorage.getItem('social_auth_company_name') || undefined;
+      return await this.completeFirebaseUser(firebaseUser, companyName);
+    } catch (error) {
+      this.clearSocialAuthMemory();
+      throw new Error(error.response?.data?.message || error.message || 'Connexion sociale impossible');
+    }
+  }
+
+  async logout() {
+    localStorage.removeItem('auth_token');
+    localStorage.removeItem('auth_user');
+    localStorage.removeItem('user_data');
+    return { success: true };
+  }
+
   async verifyToken() {
     try {
       const userData = localStorage.getItem('auth_user');
-      if (!userData) {
-        return { valid: false };
-      }
+      const token = localStorage.getItem('auth_token');
+      if (!userData || !token) return { valid: false };
 
-      const user = JSON.parse(userData);
+      const response = await http.get('/auth/me');
+      const serverUser = response.data.data.user;
+      const user = normalizeUser(serverUser);
+      localStorage.setItem('auth_user', JSON.stringify(user));
       return { valid: true, user };
-    } catch (error) {
-      localStorage.removeItem('auth_user');
+    } catch {
+      localStorage.removeItem('auth_token');
       return { valid: false };
-    }
-  }
-
-  /**
-   * Mise à jour du profil utilisateur
-   * @param {Object} profileData - Données à mettre à jour
-   * @returns {Promise<Object>} - Profil mis à jour
-   */
-  async updateProfile(profileData) {
-    try {
-      const currentUser = JSON.parse(localStorage.getItem('auth_user') || '{}');
-      if (!currentUser.id) {
-        throw new Error('Utilisateur non connecté');
-      }
-
-      const updatedUser = { ...currentUser, ...profileData };
-
-      // Si on met à jour le PIN
-      if (profileData.newPin) {
-        // Vérifier l'ancien PIN
-        if (!profileData.currentPin) {
-          throw new Error('Code PIN actuel requis');
-        }
-        
-        const userDoc = await getDoc(doc(db, 'users', currentUser.id));
-        if (!userDoc.exists()) {
-          throw new Error('Utilisateur non trouvé');
-        }
-        
-        const userData = userDoc.data();
-        if (!this._verifyPin(profileData.currentPin, userData.pinHash)) {
-          throw new Error('Code PIN actuel incorrect');
-        }
-        
-        // Mettre à jour avec le nouveau PIN hashé
-        updatedUser.pinHash = this._hashPin(profileData.newPin);
-      }
-
-      // Mettre à jour Firestore
-      await setDoc(doc(db, 'users', currentUser.id), updatedUser, { merge: true });
-
-      // Mettre à jour localStorage
-      localStorage.setItem('auth_user', JSON.stringify(updatedUser));
-
-      return updatedUser;
-    } catch (error) {
-      throw new Error('Erreur lors de la mise à jour du profil');
-    }
-  }
-
-  /**
-   * Hash un PIN avec salt pour le stockage sécurisé
-   * @param {string} pin - Code PIN (4 chiffres)
-   * @returns {string} - Hash du PIN
-   */
-  _hashPin(pin) {
-    // Créer un salt unique basé sur le numéro de téléphone de l'utilisateur
-    // Cela rend chaque hash unique même si les PIN sont les mêmes
-    const salt = 'PayTrancheSecureSalt2024';
-    let hash = 0;
-    const str = pin + salt;
-    
-    for (let i = 0; i < str.length; i++) {
-      const char = str.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
-      hash = hash & hash; // Convert to 32bit integer
-    }
-    
-    return hash.toString(16) + '_' + Date.now().toString(36);
-  }
-
-  /**
-   * Vérifie si un PIN correspond au hash stocké
-   * @param {string} pin - Code PIN à vérifier
-   * @param {string} storedHash - Hash stocké
-   * @returns {boolean}
-   */
-  _verifyPin(pin, storedHash) {
-    if (!pin || !storedHash) return false;
-    
-    // Extraire la partie salt du hash stocké
-    const salt = 'PayTrancheSecureSalt2024';
-    let hash = 0;
-    const str = pin + salt;
-    
-    for (let i = 0; i < str.length; i++) {
-      const char = str.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
-      hash = hash & hash;
-    }
-    
-    const newHash = hash.toString(16);
-    
-    // Vérifier si le début du hash correspond
-    return storedHash.startsWith(newHash);
-  }
-
-  /**
-   * Validation du numéro de téléphone sénégalais
-   * @param {string} phoneNumber - Numéro à valider
-   * @returns {boolean} - true si valide
-   */
-  _validatePhoneNumber(phoneNumber) {
-    if (!phoneNumber || phoneNumber.trim() === '') {
-      return false;
-    }
-
-    // Nettoyer le numéro (supprimer les espaces et le préfixe pays)
-    const cleaned = phoneNumber.replace(/\s+/g, '').replace(/^\+221/, '').replace(/^221/, '');
-
-    // Vérifier le format sénégalais
-    // Les préfixes valides sont: 70, 71, 75, 76, 77, 78 (opérateurs: Orange, Sonatel, etc)
-    const validPrefixes = ['70', '71', '75', '76', '77', '78'];
-    
-    // Le numéro doit avoir exactement 9 chiffres et commencer par un préfixe valide
-    return cleaned.length === 9 && validPrefixes.some(prefix => cleaned.startsWith(prefix));
-  }
-
-  /**
-   * Récupération des données utilisateur par numéro de téléphone
-   * @param {string} phoneNumber - Numéro de téléphone
-   * @returns {Promise<Object>} - Données utilisateur ou null
-   */
-  async _getUserByPhone(phoneNumber) {
-    try {
-      const usersRef = collection(db, 'users');
-      const q = query(usersRef, where('phone', '==', phoneNumber));
-      const querySnapshot = await getDocs(q);
-
-      if (!querySnapshot.empty) {
-        const userDoc = querySnapshot.docs[0];
-        return {
-          id: userDoc.id,
-          ...userDoc.data()
-        };
-      }
-      return null;
-    } catch (error) {
-      throw new Error('Erreur lors de la récupération de l\'utilisateur');
     }
   }
 }

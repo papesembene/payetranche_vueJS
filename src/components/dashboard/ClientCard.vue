@@ -1,12 +1,9 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue';
-import { Phone, Plus, History, X, Check, Clock, AlertTriangle } from 'lucide-vue-next';
-import { useUserStore } from '../../stores/user.js';
+import { ref } from 'vue';
+import { Phone, History, X, Check, Clock, AlertTriangle } from 'lucide-vue-next';
+import { installmentService } from '../../services/installment.service.js';
 import { transactionService } from '../../services/transaction.service.js';
 import { safeFormatDate } from '../../utils/export.js';
-import PaymentForm from './PaymentForm.vue';
-
-const userStore = useUserStore();
 
 const props = defineProps({
   client: {
@@ -15,24 +12,9 @@ const props = defineProps({
   }
 });
 
-const emit = defineEmits(['paymentAdded']);
-
-const showPaymentForm = ref(false);
 const showHistoryModal = ref(false);
 const clientTransactions = ref([]);
 const loading = ref(false);
-
-const openPaymentForm = () => {
-  showPaymentForm.value = true;
-};
-
-const closePaymentForm = () => {
-  showPaymentForm.value = false;
-};
-
-const onPaymentSaved = () => {
-  emit('paymentAdded');
-};
 
 const openHistoryModal = async () => {
   showHistoryModal.value = true;
@@ -48,8 +30,27 @@ const loadClientTransactions = async () => {
   if (loading.value) return;
   try {
     loading.value = true;
-    const transactions = await transactionService.getTransactionsByClient(props.client.id);
-    clientTransactions.value = transactions.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    const [transactions, installments] = await Promise.all([
+      transactionService.getTransactionsByClient(props.client.id),
+      installmentService.getInstallments({ clientId: props.client.id })
+    ]);
+
+    const payments = transactions.filter(transaction => transaction.backendType === 'payment');
+    const installmentsByCredit = new Map();
+    installments.forEach((installment) => {
+      const current = installmentsByCredit.get(installment.creditId) || [];
+      current.push(installment);
+      installmentsByCredit.set(installment.creditId, current);
+    });
+
+    clientTransactions.value = transactions
+      .filter(transaction => transaction.backendType === 'credit')
+      .map((credit) => ({
+        ...credit,
+        payments: payments.filter(payment => payment.creditId === credit.id),
+        installments: installmentsByCredit.get(credit.id) || []
+      }))
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
   } catch (error) {
     console.error('Erreur chargement historique:', error);
     clientTransactions.value = [];
@@ -117,6 +118,16 @@ const getStatusText = (status) => {
       return 'En retard';
   }
 };
+
+const transactionAmountLabel = (transaction) => {
+  return transaction.backendType === 'credit' ? 'Montant initial' : 'Montant reçu';
+};
+
+const transactionAmount = (transaction) => {
+  return transaction.backendType === 'credit'
+    ? transaction.originalAmount || transaction.amount
+    : transaction.amount;
+};
 </script>
 
 <template>
@@ -178,23 +189,6 @@ const getStatusText = (status) => {
     <!-- Actions -->
     <div class="space-y-2">
       <button
-        v-if="props.client.progress < 100 && userStore.canAddPayment"
-        @click="openPaymentForm"
-        class="w-full flex items-center justify-center gap-2 px-4 py-3 bg-teal-500 hover:bg-teal-600 text-white font-semibold rounded-xl transition-colors"
-      >
-        <Plus :size="18" />
-        Ajouter un paiement
-      </button>
-      <button
-        v-else-if="client.progress < 100 && !userStore.canAddPayment"
-        disabled
-        class="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gray-400 cursor-not-allowed text-gray-200 font-semibold rounded-xl"
-        title="Vous ne pouvez pas ajouter de paiements. Vérifiez votre abonnement ou vos limites."
-      >
-        <Plus :size="18" />
-        Ajouter un paiement
-      </button>
-      <button
         @click="openHistoryModal"
         class="w-full flex items-center justify-center gap-2 px-4 py-3 border border-gray-300 hover:bg-gray-50 text-gray-700 font-medium rounded-xl transition-colors"
       >
@@ -203,20 +197,12 @@ const getStatusText = (status) => {
       </button>
     </div>
 
-    <!-- Payment Form Modal -->
-    <PaymentForm
-      :show="showPaymentForm"
-      :client="props.client"
-      @close="closePaymentForm"
-      @saved="onPaymentSaved"
-    />
-
     <!-- History Modal -->
     <div v-if="showHistoryModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" style="z-index: 1000;">
       <div class="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
         <!-- Header -->
         <div class="flex items-center justify-between p-6 border-b border-gray-200">
-          <h2 class="text-xl font-bold text-gray-900">Historique des paiements - {{ client.name }}</h2>
+          <h2 class="text-xl font-bold text-gray-900">Crédits de {{ client.name }}</h2>
           <button @click="closeHistoryModal" class="p-2 hover:bg-gray-100 rounded-lg transition-colors">
             <X :size="20" class="text-gray-500" />
           </button>
@@ -230,8 +216,8 @@ const getStatusText = (status) => {
 
           <div v-else-if="clientTransactions.length === 0" class="text-center py-8">
             <History :size="48" class="text-gray-400 mx-auto mb-4" />
-            <h3 class="text-lg font-medium text-gray-900 mb-2">Aucun paiement</h3>
-            <p class="text-gray-600">Ce client n'a encore aucun paiement enregistré.</p>
+            <h3 class="text-lg font-medium text-gray-900 mb-2">Aucun crédit</h3>
+            <p class="text-gray-600">Ce client n’a rien pris à crédit.</p>
           </div>
 
           <div v-else class="space-y-4 max-h-96 overflow-y-auto">
@@ -246,7 +232,7 @@ const getStatusText = (status) => {
                     <component :is="getStatusIcon(transaction.status)" :size="20" />
                   </div>
                   <div>
-                    <h4 class="font-semibold text-gray-900">{{ transaction.description || 'Paiement' }}</h4>
+                    <h4 class="font-semibold text-gray-900">{{ transaction.description || 'Crédit client' }}</h4>
                     <p class="text-sm text-gray-600">{{ formatDate(transaction.createdAt) }}</p>
                   </div>
                 </div>
@@ -255,18 +241,22 @@ const getStatusText = (status) => {
                 </span>
               </div>
 
-              <div class="flex justify-between items-center">
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
-                  <p class="text-sm text-gray-600">Montant</p>
-                  <p class="font-semibold text-gray-900">{{ formatAmount(transaction.amount) }}</p>
+                  <p class="text-sm text-gray-600">{{ transactionAmountLabel(transaction) }}</p>
+                  <p class="font-semibold text-gray-900">{{ formatAmount(transactionAmount(transaction)) }}</p>
                 </div>
-                <div v-if="transaction.dueDate" class="text-right">
+                <div v-if="transaction.backendType === 'credit'">
+                  <p class="text-sm text-gray-600">Payé</p>
+                  <p class="font-semibold text-green-600">{{ formatAmount(transaction.paidAmount || 0) }}</p>
+                </div>
+                <div v-if="transaction.backendType === 'credit'">
+                  <p class="text-sm text-gray-600">Reste</p>
+                  <p class="font-semibold text-orange-600">{{ formatAmount(transaction.remainingAmount || 0) }}</p>
+                </div>
+                <div v-if="transaction.dueDate" class="sm:col-span-3">
                   <p class="text-sm text-gray-600">Échéance</p>
                   <p class="font-medium text-gray-700">{{ formatDate(transaction.dueDate) }}</p>
-                </div>
-                <div v-if="transaction.installmentInfo" class="text-right">
-                  <p class="text-sm text-gray-600">Tranche</p>
-                  <p class="font-medium text-gray-700">{{ transaction.installmentInfo.currentInstallment }}/{{ transaction.installmentInfo.totalInstallments }}</p>
                 </div>
               </div>
 
@@ -274,6 +264,45 @@ const getStatusText = (status) => {
                 <p class="text-xs text-gray-500">
                   Payé le {{ formatDate(transaction.paymentDate) }}
                 </p>
+              </div>
+
+              <div v-if="transaction.installments.length > 0" class="mt-4 pt-4 border-t border-gray-200">
+                <p class="text-sm font-semibold text-gray-800 mb-2">Tranches prévues</p>
+                <div class="space-y-2">
+                  <div
+                    v-for="installment in transaction.installments"
+                    :key="installment.id"
+                    class="flex items-center justify-between gap-3 bg-white rounded-lg border border-gray-200 p-3"
+                  >
+                    <div>
+                      <p class="font-medium text-gray-900">Tranche {{ installment.number }}</p>
+                      <p class="text-xs text-gray-600">{{ formatDate(installment.dueDate) }}</p>
+                    </div>
+                    <div class="text-right">
+                      <p class="font-semibold text-gray-900">{{ formatAmount(installment.amount) }}</p>
+                      <p :class="['text-xs font-medium', installment.remainingAmount > 0 ? 'text-orange-600' : 'text-green-600']">
+                        Reste {{ formatAmount(installment.remainingAmount) }}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div v-if="transaction.payments.length > 0" class="mt-4 pt-4 border-t border-gray-200">
+                <p class="text-sm font-semibold text-gray-800 mb-2">Paiements reçus</p>
+                <div class="space-y-2">
+                  <div
+                    v-for="payment in transaction.payments"
+                    :key="payment.id"
+                    class="flex items-center justify-between gap-3 bg-green-50 rounded-lg border border-green-100 p-3"
+                  >
+                    <div>
+                      <p class="font-medium text-green-900">{{ payment.description || 'Paiement reçu' }}</p>
+                      <p class="text-xs text-green-700">{{ formatDate(payment.paymentDate || payment.createdAt) }}</p>
+                    </div>
+                    <p class="font-semibold text-green-700">{{ formatAmount(payment.amount) }}</p>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
