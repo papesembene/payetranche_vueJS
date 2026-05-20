@@ -6,11 +6,10 @@ import DebtsView from '../components/dashboard/DebtsView.vue';
 import PaymentsView from '../components/dashboard/PaymentsView.vue';
 import ClientsView from '../components/dashboard/ClientsView.vue';
 import MoneyView from '../components/dashboard/MoneyView.vue';
+import RemindersView from '../components/dashboard/RemindersView.vue';
 import { useUserStore } from '../stores/user.js';
-import { transactionService } from '../services/transaction.service.js';
-import { clientService } from '../services/client.service.js';
-import { safeFormatDate } from '../utils/export.js';
-import { AlertTriangle, X, CreditCard, DollarSign, Users, Wallet } from 'lucide-vue-next';
+import { notificationService } from '../services/notification.service.js';
+import { AlertTriangle, X, CreditCard, DollarSign, Users, Wallet, MessageCircle } from 'lucide-vue-next';
 
 const userStore = useUserStore();
 
@@ -19,7 +18,7 @@ const loading = computed(() => userStore.loading);
 
 const activeTab = ref('debts');
 const refreshStats = ref(0);
-const overduePayments = ref([]);
+const reminders = ref([]);
 const showNotifications = ref(true);
 const contentSection = ref(null);
 
@@ -46,6 +45,13 @@ const navItems = [
     icon: Users
   },
   {
+    id: 'reminders',
+    label: 'Relances',
+    mobileLabel: 'Relances',
+    helper: 'WhatsApp gratuit pour les échéances dues',
+    icon: MessageCircle
+  },
+  {
     id: 'money',
     label: 'Mon argent',
     mobileLabel: 'Argent',
@@ -66,37 +72,25 @@ const setActiveTab = (tab) => {
 
 const onClientSaved = () => {
   refreshStats.value++;
-  loadOverduePayments();
+  loadReminders();
 };
 
 const onPaymentSaved = () => {
   refreshStats.value++;
-  loadOverduePayments();
+  loadReminders();
 };
 
 const onPaymentsUpdated = () => {
   refreshStats.value++;
-  loadOverduePayments();
+  loadReminders();
 };
 
-const loadOverduePayments = async () => {
+const loadReminders = async () => {
   try {
-    const overdue = await transactionService.getOverdueTransactions();
-    if (overdue.length > 0) {
-      // Enrich with client names
-      const clients = await clientService.getClients();
-      const clientsMap = new Map(clients.map(c => [c.id, c.name]));
-
-      overduePayments.value = overdue.map(payment => ({
-        ...payment,
-        clientName: clientsMap.get(payment.clientId) || 'Client inconnu'
-      }));
-    } else {
-      overduePayments.value = [];
-    }
+    reminders.value = await notificationService.getTodayReminders();
   } catch (error) {
-    console.error('Erreur chargement paiements en retard:', error);
-    overduePayments.value = [];
+    console.error('Erreur chargement relances:', error);
+    reminders.value = [];
   }
 };
 
@@ -104,16 +98,10 @@ const dismissNotification = () => {
   showNotifications.value = false;
 };
 
-const formatAmount = (amount) => {
-  return new Intl.NumberFormat('fr-FR').format(amount) + ' FCFA';
-};
-
-const formatDate = (dateString) => {
-  return safeFormatDate(dateString);
-};
+const formatAmount = (amount) => `${new Intl.NumberFormat('fr-FR').format(Number(amount || 0))} FCFA`;
 
 onMounted(() => {
-  loadOverduePayments();
+  loadReminders();
 });
 </script>
 
@@ -132,36 +120,31 @@ onMounted(() => {
         <h1 class="text-xl sm:text-3xl font-bold text-gray-950 leading-tight">PayTranche</h1>
       </div>
 
-      <div v-if="overduePayments.length > 0 && showNotifications" class="mb-6">
-        <div class="bg-red-50 border border-red-200 rounded-lg p-4">
+      <div v-if="reminders.length > 0 && showNotifications" class="mb-6">
+        <div class="rounded-lg border border-amber-200 bg-amber-50 p-4">
           <div class="flex items-start gap-3">
-            <AlertTriangle :size="24" class="text-red-500 flex-shrink-0 mt-0.5" />
-            <div class="flex-1">
-              <h3 class="text-lg font-semibold text-red-800 mb-2">
-                Paiements en retard ({{ overduePayments.length }})
+            <AlertTriangle :size="22" class="mt-0.5 shrink-0 text-amber-600" />
+            <div class="min-w-0 flex-1">
+              <h3 class="font-black text-amber-900">
+                {{ reminders.length }} relance{{ reminders.length > 1 ? 's' : '' }} à faire
               </h3>
-              <div class="space-y-2">
-                <div
-                  v-for="payment in overduePayments.slice(0, 3)"
-                  :key="payment.id"
-                  class="flex justify-between items-center bg-white rounded-lg p-3 border border-red-200"
-                >
-                  <div>
-                    <p class="font-medium text-gray-900">{{ payment.clientName }}</p>
-                    <p class="text-sm text-gray-600">{{ formatAmount(payment.amount) }} - Échéance: {{ formatDate(payment.dueDate) }}</p>
-                  </div>
-                  <span class="text-red-600 font-semibold">En retard</span>
-                </div>
-                <p v-if="overduePayments.length > 3" class="text-sm text-red-700">
-                  Et {{ overduePayments.length - 3 }} autres paiements en retard...
-                </p>
-              </div>
+              <p class="mt-1 text-sm font-semibold text-amber-800">
+                Total: {{ formatAmount(reminders.reduce((total, item) => total + item.amount, 0)) }}
+              </p>
+              <button
+                type="button"
+                @click="setActiveTab('reminders')"
+                class="mt-3 inline-flex min-h-10 items-center justify-center rounded-lg bg-amber-600 px-4 text-sm font-black text-white"
+              >
+                Voir
+              </button>
             </div>
             <button
               @click="dismissNotification"
-              class="p-1 hover:bg-red-100 rounded-lg transition-colors"
+              class="rounded-lg p-1 transition-colors hover:bg-amber-100"
+              aria-label="Masquer"
             >
-              <X :size="20" class="text-red-500" />
+              <X :size="20" class="text-amber-700" />
             </button>
           </div>
         </div>
@@ -202,13 +185,14 @@ onMounted(() => {
           <DebtsView v-if="activeTab === 'debts'" :refresh="refreshStats" @updated="onPaymentsUpdated" />
           <PaymentsView v-else-if="activeTab === 'payments'" :refresh="refreshStats" @saved="onPaymentSaved" @updated="onPaymentsUpdated" />
           <ClientsView v-else-if="activeTab === 'clients'" :refresh="refreshStats" @saved="onClientSaved" />
-          <MoneyView v-else />
+          <RemindersView v-else-if="activeTab === 'reminders'" :refresh="refreshStats" @updated="onPaymentsUpdated" />
+          <MoneyView v-else-if="activeTab === 'money'" />
         </section>
       </div>
     </main>
 
     <nav v-if="!loading && user" class="fixed inset-x-0 bottom-0 z-40 border-t border-gray-200 bg-white lg:hidden">
-      <div class="grid grid-cols-4">
+      <div class="grid grid-cols-5">
         <button
           v-for="item in navItems"
           :key="item.id"

@@ -9,6 +9,15 @@ const normalizeAlert = (alert) => ({
   clientName: alert.client?.name || 'Client inconnu'
 });
 
+const normalizeReminder = (reminder) => ({
+  ...reminder,
+  amount: Number(reminder.amount || 0),
+  overdueDays: Number(reminder.overdueDays || 0),
+  reminderCount: Number(reminder.reminderCount || 0),
+  remindedToday: Boolean(reminder.remindedToday),
+  clientPhone: reminder.clientPhone || ''
+});
+
 class NotificationService {
   async scanOverdue() {
     try {
@@ -36,6 +45,20 @@ class NotificationService {
   async markAsRead(alertId) {
     const response = await http.patch(`/notifications/alerts/${alertId}/read`);
     return normalizeAlert(response.data.data);
+  }
+
+  async getTodayReminders() {
+    try {
+      const response = await http.get('/notifications/reminders/today');
+      return (response.data.data || []).map(normalizeReminder);
+    } catch (error) {
+      throw new Error(error.response?.data?.message || 'Erreur lors du chargement des relances');
+    }
+  }
+
+  async markWhatsAppReminder(type, id) {
+    const response = await http.post(`/notifications/reminders/${type}/${id}/whatsapp`);
+    return response.data.data;
   }
 }
 

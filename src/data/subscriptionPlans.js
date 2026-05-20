@@ -13,7 +13,7 @@ export const subscriptionPlans = {
   pro: {
     id: 'pro',
     name: 'Pro',
-    price: 15000,
+    price: 3000,
     currency: 'FCFA',
     billing: 'mensuel',
     limits: { maxClients: -1, maxPayments: -1, maxPaymentAmount: -1 },

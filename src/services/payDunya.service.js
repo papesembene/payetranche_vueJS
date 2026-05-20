@@ -264,7 +264,7 @@ class PayDunyaService {
       {
         id: 'pro',
         name: 'Pro',
-        price: 15000,
+        price: 3000,
         currency: 'FCFA'
       },
       {
