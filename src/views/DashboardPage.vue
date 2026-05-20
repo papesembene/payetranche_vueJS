@@ -9,7 +9,7 @@ import MoneyView from '../components/dashboard/MoneyView.vue';
 import RemindersView from '../components/dashboard/RemindersView.vue';
 import { useUserStore } from '../stores/user.js';
 import { notificationService } from '../services/notification.service.js';
-import { AlertTriangle, X, CreditCard, DollarSign, Users, Wallet, MessageCircle } from 'lucide-vue-next';
+import { AlertTriangle, X, CreditCard, DollarSign, Users, Wallet } from 'lucide-vue-next';
 
 const userStore = useUserStore();
 
@@ -43,13 +43,6 @@ const navItems = [
     mobileLabel: 'Clients',
     helper: 'Ajouter ou retrouver une personne',
     icon: Users
-  },
-  {
-    id: 'reminders',
-    label: 'Relances',
-    mobileLabel: 'Relances',
-    helper: 'WhatsApp gratuit pour les échéances dues',
-    icon: MessageCircle
   },
   {
     id: 'money',
@@ -89,7 +82,6 @@ const loadReminders = async () => {
   try {
     reminders.value = await notificationService.getTodayReminders();
   } catch (error) {
-    console.error('Erreur chargement relances:', error);
     reminders.value = [];
   }
 };
@@ -192,7 +184,7 @@ onMounted(() => {
     </main>
 
     <nav v-if="!loading && user" class="fixed inset-x-0 bottom-0 z-40 border-t border-gray-200 bg-white lg:hidden">
-      <div class="grid grid-cols-5">
+      <div class="grid grid-cols-4">
         <button
           v-for="item in navItems"
           :key="item.id"
