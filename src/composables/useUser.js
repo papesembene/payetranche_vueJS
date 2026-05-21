@@ -131,81 +131,11 @@ const hasFeatureCheck = (feature) => {
 
 
 // Actions
-const register = async (userData) => {
-  loading.value = true;
-  try {
-    const result = await authService.register(userData);
-    if (result.success) {
-      user.value = result.user;
-      isAuthenticated.value = true;
-      persistUserData(); // Sauvegarder les données après inscription
-      localStorage.setItem('auth_user', JSON.stringify(result.user)); // Sauvegarder aussi auth_user
-      // Sauvegarder aussi la session persistante pour PWA
-      SessionService.saveSession(result.user);
-      // Sync with userStore
-      const userStore = useUserStore();
-      userStore.user = result.user;
-      userStore.isAuthenticated = true;
-    }
-    return result;
-  } catch (error) {
-    return { success: false, error: error.message };
-  } finally {
-    loading.value = false;
-  }
-};
-
-const login = async (credentials) => {
-  loading.value = true;
-  try {
-    const result = await authService.login(credentials);
-    if (result.success) {
-      user.value = result.user;
-      isAuthenticated.value = true;
-      persistUserData(); // Sauvegarder les données immédiatement après connexion
-      localStorage.setItem('auth_user', JSON.stringify(result.user)); // Sauvegarder aussi auth_user
-      // Sauvegarder aussi la session persistante pour PWA
-      SessionService.saveSession(result.user);
-      // Sync with userStore
-      const userStore = useUserStore();
-      userStore.user = result.user;
-      userStore.isAuthenticated = true;
-    }
-    return result;
-  } catch (error) {
-    return { success: false, error: error.message };
-  } finally {
-    loading.value = false;
-  }
-};
-
 const socialLogin = async (provider, options = {}) => {
   loading.value = true;
   try {
     const result = await authService.loginWithSocial(provider, options);
     if (result.success && !result.pendingRedirect) {
-      user.value = result.user;
-      isAuthenticated.value = true;
-      persistUserData();
-      localStorage.setItem('auth_user', JSON.stringify(result.user));
-      SessionService.saveSession(result.user);
-      const userStore = useUserStore();
-      userStore.user = result.user;
-      userStore.isAuthenticated = true;
-    }
-    return result;
-  } catch (error) {
-    return { success: false, error: error.message };
-  } finally {
-    loading.value = false;
-  }
-};
-
-const googleCredentialLogin = async (idToken, options = {}) => {
-  loading.value = true;
-  try {
-    const result = await authService.loginWithGoogleCredential(idToken, options);
-    if (result.success) {
       user.value = result.user;
       isAuthenticated.value = true;
       persistUserData();
@@ -632,10 +562,7 @@ export function useUser() {
     hasFeature: hasFeatureCheck,
 
     // Actions
-    register,
-    login,
     socialLogin,
-    googleCredentialLogin,
     completeSocialLogin,
     logout,
     loadUser,

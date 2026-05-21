@@ -43,7 +43,7 @@ http.interceptors.response.use(
     return response;
   },
   (error) => {
-    const authEndpoints = ['/auth/login', '/auth/register', '/auth/social'];
+    const authEndpoints = ['/auth/social'];
     const requestUrl = error.config?.url || '';
     const isAuthRequest = authEndpoints.some((endpoint) => requestUrl.includes(endpoint));
 

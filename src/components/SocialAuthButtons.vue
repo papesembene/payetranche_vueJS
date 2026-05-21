@@ -1,27 +1,26 @@
 <script setup>
-import SocialProviderIcon from './SocialProviderIcon.vue';
+import SocialProviderIcon from "./SocialProviderIcon.vue";
 
 defineProps({
   mode: {
     type: String,
-    default: 'login'
+    default: "login",
   },
   loadingProvider: {
     type: String,
-    default: ''
+    default: "",
   },
   disabled: {
     type: Boolean,
-    default: false
-  }
+    default: false,
+  },
 });
 
-const emit = defineEmits(['select']);
+const emit = defineEmits(["select"]);
 
 const providers = [
-  { id: 'google', label: 'Google' },
-  { id: 'facebook', label: 'Facebook' },
-  { id: 'tiktok', label: 'TikTok' }
+  { id: "google", label: "Google" },
+  { id: "facebook", label: "Facebook" },
 ];
 </script>
 
@@ -38,7 +37,10 @@ const providers = [
       <SocialProviderIcon :provider="provider.id" />
       <span>
         <template v-if="loadingProvider === provider.id">Connexion...</template>
-        <template v-else>{{ mode === 'register' ? 'S’inscrire avec' : 'Continuer avec' }} {{ provider.label }}</template>
+        <template v-else
+          >{{ mode === "register" ? "S’inscrire avec" : "Continuer avec" }}
+          {{ provider.label }}</template
+        >
       </span>
     </button>
   </div>
