@@ -270,7 +270,7 @@ const today = new Date().toISOString().split('T')[0];
     <div class="bg-white rounded-2xl shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
       <!-- Header -->
       <div class="flex items-center justify-between p-6 border-b border-gray-200">
-        <h2 class="text-xl font-bold text-gray-900">Encaisser un paiement</h2>
+        <h2 class="text-xl font-bold text-gray-900">Paiement reçu</h2>
         <button @click="closeForm" class="p-2 hover:bg-gray-100 rounded-lg transition-colors">
           <X :size="20" class="text-gray-500" />
         </button>
@@ -442,7 +442,7 @@ const today = new Date().toISOString().split('T')[0];
             :disabled="loading || !canAddPayment || hasPendingPayments"
             class="flex-1 px-4 py-3 bg-teal-500 hover:bg-teal-600 text-white font-semibold rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {{ loading ? 'Encaissement...' : 'Encaisser' }}
+            {{ loading ? 'Enregistrement...' : 'Enregistrer' }}
           </button>
         </div>
       </form>

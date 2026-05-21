@@ -9,7 +9,7 @@ const plans = [
     name: 'Gratuit',
     price: '0 FCFA',
     description: 'Pour tester avec quelques clients.',
-    features: ['Jusqu’à 5 clients actifs', 'Ventes à crédit', 'Tranches', 'Fiche de suivi client']
+    features: ['Jusqu’à 5 clients actifs', 'Ventes à crédit', 'Tranches', 'Suivi des paiements']
   },
   {
     name: 'Pro',

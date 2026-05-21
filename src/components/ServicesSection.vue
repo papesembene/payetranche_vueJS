@@ -14,8 +14,8 @@ const steps = [
   },
   {
     icon: Link2,
-    title: '3. Partager la fiche client',
-    description: 'Le client garde une fiche de suivi pour consulter sa dette, ses tranches et les numéros du vendeur.'
+    title: '3. Suivre les paiements',
+    description: 'Le vendeur voit le reste à payer, les tranches prévues et les preuves reçues.'
   },
   {
     icon: Smartphone,
@@ -46,7 +46,7 @@ const steps = [
           Un parcours simple du vendeur au client
         </h2>
         <p class="mx-auto mt-4 max-w-3xl text-lg text-gray-600">
-          PayTranche évite au vendeur de refaire les calculs à la main et donne au client une fiche claire à consulter.
+          PayTranche évite au vendeur de refaire les calculs à la main et garde un suivi clair de chaque client.
         </p>
       </div>
 
@@ -69,7 +69,7 @@ const steps = [
           <div>
             <h3 class="text-2xl font-black">Le client ne crée pas de compte.</h3>
             <p class="mt-2 text-white/90">
-              Il ouvre sa fiche de suivi, voit ce qu’il reste à payer et envoie l’argent directement au vendeur.
+              Il voit le montant à payer et envoie l’argent directement au vendeur.
             </p>
           </div>
           <div class="grid gap-2 text-sm font-bold sm:grid-cols-3 lg:min-w-[520px]">

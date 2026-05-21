@@ -1,10 +1,10 @@
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue';
-import { AlertTriangle, CalendarDays, Check, ChevronDown, Copy, CreditCard, ExternalLink, Link2, ListChecks, MessageCircle, Plus, Search, X } from 'lucide-vue-next';
+import { AlertTriangle, Banknote, CalendarDays, Check, ChevronDown, CreditCard, ListChecks, Plus, Search, X } from 'lucide-vue-next';
 import { clientService } from '../../services/client.service.js';
-import { clientPortalService } from '../../services/clientPortal.service.js';
 import { installmentService } from '../../services/installment.service.js';
 import { transactionService } from '../../services/transaction.service.js';
+import MobileMoneyIcon from './MobileMoneyIcon.vue';
 
 const props = defineProps({
   refresh: {
@@ -28,20 +28,9 @@ const expandedDebtIds = ref(new Set());
 const showDebtModal = ref(false);
 const showPaymentModal = ref(false);
 const showPlanModal = ref(false);
-const showPaymentLinkModal = ref(false);
 const selectedDebt = ref(null);
 const selectedInstallment = ref(null);
 const errors = ref({});
-const linkCopied = ref(false);
-const generatedPaymentLink = ref({
-  debtId: '',
-  url: '',
-  clientName: '',
-  clientPhone: '',
-  amount: 0,
-  label: '',
-  kind: 'portal'
-});
 
 const debtForm = ref({
   clientMode: 'new',
@@ -73,8 +62,8 @@ const planForm = ref({
 
 const statusFilters = ['À récupérer', 'En retard', 'Payées', 'Toutes'];
 const paymentMethods = [
-  { value: 'WAVE', label: 'Wave' },
-  { value: 'ORANGE_MONEY', label: 'Orange Money' },
+  { value: 'WAVE', label: 'Wave', iconOperator: 'WAVE' },
+  { value: 'ORANGE_MONEY', label: 'Orange Money', iconOperator: 'ORANGE_MONEY' },
   { value: 'CASH', label: 'Espèces' }
 ];
 
@@ -86,99 +75,6 @@ const today = new Date().toISOString().split('T')[0];
 
 const formatAmount = (amount) => {
   return new Intl.NumberFormat('fr-FR').format(Number(amount || 0)) + ' FCFA';
-};
-
-const normalizeWhatsAppPhone = (phone = '') => {
-  const digits = String(phone).replace(/\D/g, '').replace(/^00/, '');
-  if (!digits) return '';
-  if (digits.startsWith('221')) return digits;
-  if (digits.length === 9) return `221${digits}`;
-  return digits;
-};
-
-const getPaymentLinkMessage = () => {
-  const clientName = generatedPaymentLink.value.clientName || 'client';
-  return `Bonjour ${clientName}, voici votre fiche de suivi. Vous pouvez voir votre solde, vos tranches et les numéros Wave/Orange Money du vendeur ici: ${generatedPaymentLink.value.url}`;
-};
-
-const getWhatsAppUrl = () => {
-  const text = encodeURIComponent(getPaymentLinkMessage());
-  const phone = normalizeWhatsAppPhone(generatedPaymentLink.value.clientPhone);
-  return phone ? `https://wa.me/${phone}?text=${text}` : `https://wa.me/?text=${text}`;
-};
-
-const showGeneratedPaymentLink = ({ request, debt, amount, label, kind = 'portal' }) => {
-  generatedPaymentLink.value = {
-    debtId: debt.id,
-    url: request.redirectUrl || request.url,
-    clientName: debt.clientName,
-    clientPhone: debt.clientPhone,
-    amount,
-    label,
-    kind
-  };
-  linkCopied.value = false;
-  showPaymentLinkModal.value = true;
-};
-
-const closePaymentLinkModal = () => {
-  showPaymentLinkModal.value = false;
-  linkCopied.value = false;
-};
-
-const copyPaymentLink = async () => {
-  const text = generatedPaymentLink.value.url;
-  if (!text) return;
-
-  try {
-    if (navigator.clipboard?.writeText) {
-      await navigator.clipboard.writeText(text);
-    } else {
-      const textarea = document.createElement('textarea');
-      textarea.value = text;
-      textarea.setAttribute('readonly', '');
-      textarea.style.position = 'fixed';
-      textarea.style.opacity = '0';
-      document.body.appendChild(textarea);
-      textarea.select();
-      document.execCommand('copy');
-      document.body.removeChild(textarea);
-    }
-    linkCopied.value = true;
-    setTimeout(() => {
-      linkCopied.value = false;
-    }, 1800);
-  } catch (error) {
-    alert('Impossible de copier la fiche');
-  }
-};
-
-const openWhatsAppPaymentLink = () => {
-  window.open(getWhatsAppUrl(), '_blank', 'noopener,noreferrer');
-};
-
-const openPaymentLink = () => {
-  if (generatedPaymentLink.value.url) {
-    window.open(generatedPaymentLink.value.url, '_blank', 'noopener,noreferrer');
-  }
-};
-
-const sendClientPortalLink = async (debt) => {
-  try {
-    actionLoadingId.value = `portal-${debt.id}`;
-    const link = await clientPortalService.getSellerPortalLink(debt.id);
-    showGeneratedPaymentLink({
-      request: { id: '', url: link.url },
-      debt,
-      amount: debt.remainingAmount,
-      label: 'suivi',
-      kind: 'portal'
-    });
-  } catch (error) {
-    alert(error.message || 'Impossible de créer la fiche client');
-  } finally {
-    actionLoadingId.value = null;
-  }
 };
 
 const formatDate = (dateString) => {
@@ -696,20 +592,12 @@ onMounted(() => {
           <div class="lg:w-72">
             <div v-if="debt.remainingAmount > 0" class="grid gap-2">
               <button
-                @click="sendClientPortalLink(debt)"
-                :disabled="actionLoadingId === `portal-${debt.id}`"
-                class="inline-flex items-center justify-center gap-2 rounded-lg bg-teal-500 px-4 py-3 text-sm font-semibold text-white hover:bg-teal-600 disabled:opacity-60"
-              >
-                <Link2 :size="17" />
-                Fiche client
-              </button>
-              <button
                 v-if="debt.installments.length === 0"
                 @click="openPaymentModal(debt)"
                 class="inline-flex items-center justify-center gap-2 rounded-lg border border-green-200 px-4 py-3 text-sm font-semibold text-green-700 hover:bg-green-50"
               >
                 <Check :size="17" />
-                Marquer reçu
+                Paiement reçu
               </button>
               <button
                 v-if="debt.installments.length === 0"
@@ -769,7 +657,7 @@ onMounted(() => {
                   :disabled="actionLoadingId === installment.id"
                   class="w-full px-3 py-2 border border-green-200 text-green-700 hover:bg-green-50 text-sm font-semibold rounded-lg disabled:opacity-60"
                 >
-                  Marquer reçu
+                  Paiement reçu
                 </button>
               </div>
             </div>
@@ -979,7 +867,7 @@ onMounted(() => {
     <div v-if="showPaymentModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-end sm:items-center justify-center z-50 sm:p-4">
       <div class="bg-white rounded-t-2xl sm:rounded-2xl shadow-xl max-w-md w-full max-h-[92vh] overflow-y-auto">
         <div class="sticky top-0 bg-white flex items-center justify-between p-4 sm:p-6 border-b border-gray-200">
-          <h2 class="text-xl font-bold text-gray-900">Encaisser un paiement</h2>
+          <h2 class="text-xl font-bold text-gray-900">Paiement reçu</h2>
           <button @click="closePaymentModal" class="p-2 hover:bg-gray-100 rounded-lg">
             <X :size="20" class="text-gray-500" />
           </button>
@@ -1013,13 +901,21 @@ onMounted(() => {
                 type="button"
                 @click="paymentForm.method = method.value"
                 :class="[
-                  'rounded-lg border px-2 py-3 text-sm font-bold',
+                  'flex min-h-[86px] flex-col items-center justify-center gap-2 rounded-lg border px-2 py-3 text-sm font-bold',
                   paymentForm.method === method.value
                     ? 'border-teal-500 bg-teal-50 text-teal-700'
                     : 'border-gray-200 text-gray-700'
                 ]"
               >
-                {{ method.label }}
+                <MobileMoneyIcon
+                  v-if="method.iconOperator"
+                  :operator="method.iconOperator"
+                  size="sm"
+                />
+                <span v-else class="flex h-9 w-14 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-700">
+                  <Banknote :size="20" />
+                </span>
+                <span class="leading-tight">{{ method.label }}</span>
               </button>
             </div>
           </div>
@@ -1045,7 +941,7 @@ onMounted(() => {
 
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-4">
             <button type="button" @click="closePaymentModal" class="flex-1 px-4 py-3 border border-gray-300 text-gray-700 font-semibold rounded-xl hover:bg-gray-50">Annuler</button>
-            <button type="submit" class="flex-1 px-4 py-3 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-xl">Encaisser</button>
+            <button type="submit" class="flex-1 px-4 py-3 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-xl">Enregistrer</button>
           </div>
         </form>
       </div>
@@ -1099,63 +995,5 @@ onMounted(() => {
       </div>
     </div>
 
-    <div v-if="showPaymentLinkModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-end sm:items-center justify-center z-50 sm:p-4">
-      <div class="bg-white rounded-t-2xl sm:rounded-2xl shadow-xl max-w-md w-full max-h-[92vh] overflow-y-auto">
-        <div class="sticky top-0 bg-white flex items-center justify-between p-4 sm:p-6 border-b border-gray-200">
-          <h2 class="text-xl font-bold text-gray-900">Fiche client</h2>
-          <button @click="closePaymentLinkModal" class="p-2 hover:bg-gray-100 rounded-lg">
-            <X :size="20" class="text-gray-500" />
-          </button>
-        </div>
-
-        <div class="p-4 sm:p-6 space-y-4">
-          <div class="rounded-xl border border-gray-200 bg-gray-50 p-4">
-            <p class="font-semibold text-gray-950">{{ generatedPaymentLink.clientName }}</p>
-            <p class="text-sm text-gray-600">
-              Solde actuel : {{ formatAmount(generatedPaymentLink.amount) }}
-            </p>
-          </div>
-
-          <div>
-            <label class="block text-sm font-semibold text-gray-700 mb-2">Adresse de la fiche</label>
-            <input
-              :value="generatedPaymentLink.url"
-              readonly
-              class="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm text-gray-700 outline-none"
-            />
-          </div>
-
-          <div class="grid grid-cols-1 gap-3">
-            <button
-              type="button"
-              @click="copyPaymentLink"
-              class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-gray-300 px-4 py-3 font-semibold text-gray-800 hover:bg-gray-50"
-            >
-              <Copy :size="18" />
-              {{ linkCopied ? 'Copié' : 'Copier' }}
-            </button>
-
-            <button
-              type="button"
-              @click="openWhatsAppPaymentLink"
-              class="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-green-600 px-4 py-3 font-semibold text-white hover:bg-green-700"
-            >
-              <MessageCircle :size="18" />
-              WhatsApp
-            </button>
-
-            <button
-              type="button"
-              @click="openPaymentLink"
-              class="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-teal-600 px-4 py-3 font-semibold text-white hover:bg-teal-700"
-            >
-              <ExternalLink :size="18" />
-              Voir la fiche
-            </button>
-
-          </div>
-        </div>
-      </div>
-    </div>
   </div>
 </template>

@@ -43,7 +43,7 @@ const scrollToFeatures = () => {
 
         <div class="grid gap-2 text-sm font-semibold text-white/90 sm:grid-cols-2">
           <span class="inline-flex items-center gap-2"><CheckCircle2 :size="18" class="text-teal-300" /> Tranches et soldes automatiques</span>
-          <span class="inline-flex items-center gap-2"><CheckCircle2 :size="18" class="text-teal-300" /> Fiche client sans compte</span>
+          <span class="inline-flex items-center gap-2"><CheckCircle2 :size="18" class="text-teal-300" /> Suivi simple sans compte client</span>
           <span class="inline-flex items-center gap-2"><CheckCircle2 :size="18" class="text-teal-300" /> Paiement Wave / Orange Money</span>
           <span class="inline-flex items-center gap-2"><CheckCircle2 :size="18" class="text-teal-300" /> Preuves de paiement</span>
         </div>

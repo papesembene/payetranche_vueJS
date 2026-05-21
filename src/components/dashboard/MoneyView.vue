@@ -250,7 +250,7 @@ onMounted(loadData);
 
           <div class="mt-5 rounded-lg bg-gray-50 p-4 text-sm font-semibold text-gray-600">
             Quand le client paie, demandez-lui le reçu Wave/Orange Money puis cliquez sur
-            <span class="font-black text-gray-900">Marquer reçu</span> dans sa dette.
+            <span class="font-black text-gray-900">Paiement reçu</span> dans sa dette.
           </div>
         </section>
       </div>

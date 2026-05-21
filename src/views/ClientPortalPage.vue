@@ -54,7 +54,7 @@ const loadPortal = async () => {
   try {
     portal.value = await clientPortalService.getPortal(token.value);
   } catch (loadError) {
-    error.value = loadError.response?.data?.message || loadError.message || 'Fiche client introuvable';
+    error.value = loadError.response?.data?.message || loadError.message || 'Suivi client introuvable';
   } finally {
     loading.value = false;
   }
@@ -72,7 +72,7 @@ onMounted(loadPortal);
         </div>
         <div>
           <p class="text-sm font-black uppercase text-teal-700">PayTranche</p>
-          <h1 class="text-xl font-black text-gray-950">Fiche client</h1>
+          <h1 class="text-xl font-black text-gray-950">Suivi client</h1>
         </div>
       </div>
 
