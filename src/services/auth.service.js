@@ -194,8 +194,27 @@ class AuthService {
     return { success: true, user: safeUser };
   }
 
+  async loginWithGoogleToken(idToken, companyName) {
+    const response = await http.post('/auth/social', {
+      provider: 'google',
+      idToken,
+      companyName
+    });
+
+    this.clearSocialAuthMemory();
+
+    const { token, user, tenant } = response.data.data;
+    const safeUser = this.persistAuthSession(token, user, tenant);
+
+    return { success: true, user: safeUser };
+  }
+
   async loginWithSocial(providerName, options = {}) {
     try {
+      if (providerName === 'google' && options.idToken) {
+        return await this.loginWithGoogleToken(options.idToken, options.companyName);
+      }
+
       this.rememberSocialAuth(providerName, options);
 
       const provider = this.getSocialProvider(providerName);

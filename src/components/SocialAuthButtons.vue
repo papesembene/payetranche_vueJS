@@ -1,7 +1,8 @@
 <script setup>
+import { computed, nextTick, onMounted, ref, watch } from "vue";
 import SocialProviderIcon from "./SocialProviderIcon.vue";
 
-defineProps({
+const props = defineProps({
   mode: {
     type: String,
     default: "login",
@@ -16,30 +17,116 @@ defineProps({
   },
 });
 
-const emit = defineEmits(["select"]);
+const emit = defineEmits(["select", "credential"]);
 
-const providers = [
-  { id: "google", label: "Google" },
-  { id: "facebook", label: "Facebook" },
-];
+const googleButton = ref(null);
+const googleReady = ref(false);
+const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+
+const facebookProvider = { id: "facebook", label: "Facebook" };
+const googleButtonText = computed(() => (props.mode === "register" ? "signup_with" : "continue_with"));
+
+const loadGoogleScript = () => new Promise((resolve, reject) => {
+  if (!googleClientId) {
+    reject(new Error("Google non configuré"));
+    return;
+  }
+
+  if (window.google?.accounts?.id) {
+    resolve();
+    return;
+  }
+
+  const existingScript = document.querySelector('script[src="https://accounts.google.com/gsi/client"]');
+  if (existingScript) {
+    existingScript.addEventListener("load", resolve, { once: true });
+    existingScript.addEventListener("error", reject, { once: true });
+    return;
+  }
+
+  const script = document.createElement("script");
+  script.src = "https://accounts.google.com/gsi/client";
+  script.async = true;
+  script.defer = true;
+  script.onload = resolve;
+  script.onerror = reject;
+  document.head.appendChild(script);
+});
+
+const renderGoogleButton = async () => {
+  if (!googleButton.value || !googleClientId) return;
+
+  try {
+    await loadGoogleScript();
+    window.google.accounts.id.initialize({
+      client_id: googleClientId,
+      callback: (response) => {
+        if (response?.credential) {
+          emit("credential", { provider: "google", idToken: response.credential });
+        }
+      }
+    });
+
+    googleButton.value.innerHTML = "";
+    window.google.accounts.id.renderButton(googleButton.value, {
+      type: "standard",
+      theme: "outline",
+      size: "large",
+      shape: "rectangular",
+      text: googleButtonText.value,
+      locale: "fr",
+      width: googleButton.value.offsetWidth || 360
+    });
+    googleReady.value = true;
+  } catch {
+    googleReady.value = false;
+  }
+};
+
+onMounted(() => {
+  nextTick(renderGoogleButton);
+});
+
+watch(() => props.mode, () => {
+  nextTick(renderGoogleButton);
+});
 </script>
 
 <template>
   <div class="grid gap-2">
+    <div
+      v-if="googleClientId"
+      class="min-h-[48px] w-full overflow-hidden rounded-xl"
+      :class="{ 'pointer-events-none opacity-60': disabled || Boolean(loadingProvider) }"
+    >
+      <div ref="googleButton" class="w-full"></div>
+      <button
+        v-if="!googleReady"
+        type="button"
+        :disabled="disabled || Boolean(loadingProvider)"
+        class="flex min-h-[48px] w-full items-center justify-center gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-bold text-gray-900 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+        @click="emit('select', 'google')"
+      >
+        <SocialProviderIcon provider="google" />
+        <span>
+          <template v-if="loadingProvider === 'google'">Connexion...</template>
+          <template v-else>{{ mode === "register" ? "S’inscrire avec" : "Continuer avec" }} Google</template>
+        </span>
+      </button>
+    </div>
+
     <button
-      v-for="provider in providers"
-      :key="provider.id"
       type="button"
       :disabled="disabled || Boolean(loadingProvider)"
       class="flex min-h-[48px] w-full items-center justify-center gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-bold text-gray-900 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
-      @click="emit('select', provider.id)"
+      @click="emit('select', facebookProvider.id)"
     >
-      <SocialProviderIcon :provider="provider.id" />
+      <SocialProviderIcon :provider="facebookProvider.id" />
       <span>
-        <template v-if="loadingProvider === provider.id">Connexion...</template>
+        <template v-if="loadingProvider === facebookProvider.id">Connexion...</template>
         <template v-else
           >{{ mode === "register" ? "S’inscrire avec" : "Continuer avec" }}
-          {{ provider.label }}</template
+          {{ facebookProvider.label }}</template
         >
       </span>
     </button>

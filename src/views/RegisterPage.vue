@@ -52,6 +52,22 @@ const handleSocialAuth = async (provider) => {
   }
 };
 
+const handleSocialCredential = async ({ provider, idToken }) => {
+  errors.value = {};
+  socialLoadingProvider.value = provider;
+
+  const result = await socialLogin(provider, { idToken });
+  if (result.success) {
+    goAfterAuth(result.user);
+    return;
+  }
+
+  if (result.error) {
+    errors.value.general = result.error;
+  }
+  socialLoadingProvider.value = '';
+};
+
 onMounted(async () => {
   if (!authService.hasPendingSocialAuth()) return;
 
@@ -97,6 +113,7 @@ onMounted(async () => {
           :loading-provider="socialLoadingProvider"
           :disabled="loading"
           @select="handleSocialAuth"
+          @credential="handleSocialCredential"
         />
 
         <div class="mt-5 rounded-xl border border-teal-100 bg-teal-50 px-4 py-3 text-sm font-semibold text-teal-800">
