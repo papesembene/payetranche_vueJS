@@ -5,6 +5,7 @@ import { clientService } from '../../services/client.service.js';
 import { installmentService } from '../../services/installment.service.js';
 import { transactionService } from '../../services/transaction.service.js';
 import MobileMoneyIcon from './MobileMoneyIcon.vue';
+import { getUserFriendlyError } from '../../utils/userFriendlyError.js';
 
 const props = defineProps({
   refresh: {
@@ -362,7 +363,7 @@ const createDebt = async () => {
     emit('updated');
     closeDebtModal();
   } catch (error) {
-    errors.value.general = error.message || 'Erreur lors de la création de la dette';
+    errors.value.general = getUserFriendlyError(error, 'save');
   } finally {
     loading.value = false;
   }
@@ -426,7 +427,7 @@ const createInstallmentPlan = async () => {
     emit('updated');
     closePlanModal();
   } catch (error) {
-    errors.value.general = error.message || 'Impossible de créer les tranches';
+    errors.value.general = getUserFriendlyError(error, 'save');
   } finally {
     actionLoadingId.value = null;
   }
@@ -474,7 +475,7 @@ const collectPayment = async () => {
     emit('updated');
     closePaymentModal();
   } catch (error) {
-    errors.value.general = error.message || 'Erreur lors de l’encaissement';
+    errors.value.general = getUserFriendlyError(error, 'payment');
   } finally {
     actionLoadingId.value = null;
   }

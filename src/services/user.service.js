@@ -1,4 +1,5 @@
 import { http } from './http.js';
+import { getUserFriendlyError } from '../utils/userFriendlyError.js';
 
 const backendPlanToFrontend = (plan) => {
   const plans = {
@@ -40,7 +41,7 @@ class UserService {
     } catch (error) {
       const cached = localStorage.getItem('auth_user');
       if (cached) return JSON.parse(cached);
-      throw new Error(error.response?.data?.message || 'Erreur lors du chargement du profil');
+      throw new Error(getUserFriendlyError(error, 'load'));
     }
   }
 

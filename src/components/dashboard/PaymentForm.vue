@@ -5,6 +5,7 @@ import { transactionService } from '../../services/transaction.service.js';
 import { clientService } from '../../services/client.service.js';
 import { useUserStore } from '../../stores/user.js';
 import { useUser } from '../../composables/useUser.js';
+import { getUserFriendlyError } from '../../utils/userFriendlyError.js';
 
 const userStore = useUserStore();
 const { syncUsageCounts } = useUser();
@@ -182,7 +183,7 @@ const handleSubmit = async () => {
     closeForm();
   } catch (error) {
     console.error('Erreur création paiement:', error);
-    errors.value.general = error.message || 'Erreur lors de la création du paiement';
+    errors.value.general = getUserFriendlyError(error, 'payment');
   } finally {
     loading.value = false;
   }

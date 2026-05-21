@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue';
 import { useRoute } from 'vue-router';
 import { CheckCircle2, Clock, CreditCard, Smartphone } from 'lucide-vue-next';
 import { clientPortalService } from '../services/clientPortal.service.js';
+import { getUserFriendlyError } from '../utils/userFriendlyError.js';
 
 const route = useRoute();
 const portal = ref(null);
@@ -54,7 +55,7 @@ const loadPortal = async () => {
   try {
     portal.value = await clientPortalService.getPortal(token.value);
   } catch (loadError) {
-    error.value = loadError.response?.data?.message || loadError.message || 'Suivi client introuvable';
+    error.value = getUserFriendlyError(loadError, 'load');
   } finally {
     loading.value = false;
   }

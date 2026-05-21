@@ -6,6 +6,7 @@ import DashboardHeader from '../components/dashboard/DashboardHeader.vue';
 import { useUser } from '../composables/useUser.js';
 import { subscriptionPlans } from '../data/subscriptionPlans.js';
 import { subscriptionService } from '../services/subscription.service.js';
+import { getUserFriendlyError } from '../utils/userFriendlyError.js';
 
 const router = useRouter();
 const route = useRoute();
@@ -82,7 +83,7 @@ const loadSubscription = async () => {
       error.value = 'Paiement annulé. Votre plan n’a pas changé.';
     }
   } catch (loadError) {
-    error.value = loadError.message || 'Impossible de charger l’abonnement';
+    error.value = getUserFriendlyError(loadError, 'load');
   } finally {
     loading.value = false;
   }

@@ -1,5 +1,6 @@
 import { http } from './http.js';
 import { auth } from '../firebase.js';
+import { getUserFriendlyError } from '../utils/userFriendlyError.js';
 import {
   getRedirectResult,
   FacebookAuthProvider,
@@ -52,31 +53,33 @@ const normalizeUser = (user, tenant = null) => {
 
 const socialAuthErrorMessage = (error, providerName) => {
   const providerLabel = socialProviderLabels[providerName] || 'ce service';
-  const currentHost = window.location.host || 'localhost';
-
   const messages = {
-    'auth/popup-blocked': `La fenêtre ${providerLabel} a été bloquée. Autorisez les popups pour ${currentHost} puis réessayez.`,
+    'auth/popup-blocked': `La fenêtre ${providerLabel} a été bloquée. Autorisez les fenêtres popup puis réessayez.`,
     'auth/popup-closed-by-user': `Connexion ${providerLabel} annulée. Cliquez sur le bouton et terminez la connexion dans la fenêtre ouverte.`,
     'auth/cancelled-popup-request': `Une connexion ${providerLabel} est déjà en cours. Fermez l'autre fenêtre puis réessayez.`,
-    'auth/operation-not-allowed': `${providerLabel} n'est pas encore activé dans Firebase Authentication.`,
-    'auth/invalid-provider-id': `${providerLabel} doit être configuré dans Firebase Authentication.`,
-    'auth/invalid-app-id': `L'application Facebook configurée dans Firebase n'est pas valide.`,
-    'auth/invalid-oauth-client-id': `L'identifiant OAuth de ${providerLabel} n'est pas valide.`,
-    'auth/unauthorized-domain': `Le domaine ${currentHost} n'est pas autorisé dans Firebase Authentication.`,
+    'auth/operation-not-allowed': `Connexion ${providerLabel} indisponible pour le moment. Réessayez plus tard.`,
+    'auth/invalid-provider-id': `Connexion ${providerLabel} indisponible pour le moment. Réessayez plus tard.`,
+    'auth/invalid-app-id': 'Connexion Facebook indisponible pour le moment. Réessayez plus tard.',
+    'auth/invalid-oauth-client-id': `Connexion ${providerLabel} indisponible pour le moment. Réessayez plus tard.`,
+    'auth/unauthorized-domain': 'Connexion impossible depuis cette adresse. Réessayez plus tard.',
     'auth/account-exists-with-different-credential': 'Un compte existe déjà avec cet email. Connectez-vous avec la méthode utilisée au départ.',
-    'auth/invalid-credential': `La configuration ${providerLabel} est invalide. Vérifiez les clés dans Firebase.`,
-    'auth/popup-timeout': `Connexion ${providerLabel} bloquée après le choix du compte. Fermez la fenêtre ${providerLabel}, rechargez la page, puis réessayez.`
+    'auth/invalid-credential': `Connexion ${providerLabel} impossible pour le moment. Réessayez plus tard.`,
+    'auth/popup-timeout': `Connexion ${providerLabel} non terminée. Rechargez la page puis réessayez.`
   };
 
+  if (messages[error?.code]) {
+    return messages[error.code];
+  }
+
   if (error?.code === 'ERR_NETWORK') {
-    return `Connexion ${providerLabel} réussie, mais le backend PayTranche ne répond pas.`;
+    return 'Connexion impossible pour le moment. Vérifiez votre internet puis réessayez.';
   }
 
   if (error?.code === 'ECONNABORTED') {
-    return `Connexion ${providerLabel} réussie, mais le backend PayTranche met trop de temps à répondre.`;
+    return 'Connexion trop lente. Réessayez dans quelques instants.';
   }
 
-  return messages[error?.code] || error.response?.data?.message || error.message || `Connexion ${providerLabel} impossible`;
+  return getUserFriendlyError(error, 'auth');
 };
 
 class AuthService {
@@ -172,7 +175,7 @@ class AuthService {
 
   async completeFirebaseUser(firebaseUser, companyName) {
     if (!firebaseUser) {
-      throw new Error('Firebase user is null');
+      throw new Error('Connexion impossible.');
     }
 
     const idToken = await firebaseUser.getIdToken(true);

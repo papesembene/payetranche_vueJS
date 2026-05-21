@@ -1,4 +1,5 @@
 import { http } from './http.js';
+import { getUserFriendlyError } from '../utils/userFriendlyError.js';
 
 const normalizeAlert = (alert) => ({
   ...alert,
@@ -24,7 +25,7 @@ class NotificationService {
       const response = await http.post('/notifications/scan-overdue');
       return response.data.data;
     } catch (error) {
-      throw new Error(error.response?.data?.message || 'Erreur lors du scan des retards');
+      throw new Error(getUserFriendlyError(error, 'reminders'));
     }
   }
 
@@ -38,7 +39,7 @@ class NotificationService {
       const response = await http.get(`/notifications/alerts?${params.toString()}`);
       return response.data.data.map(normalizeAlert);
     } catch (error) {
-      throw new Error(error.response?.data?.message || 'Erreur lors du chargement des alertes');
+      throw new Error(getUserFriendlyError(error, 'reminders'));
     }
   }
 
@@ -52,7 +53,7 @@ class NotificationService {
       const response = await http.get('/notifications/reminders/today');
       return (response.data.data || []).map(normalizeReminder);
     } catch (error) {
-      throw new Error(error.response?.data?.message || 'Erreur lors du chargement des relances');
+      throw new Error(getUserFriendlyError(error, 'reminders'));
     }
   }
 

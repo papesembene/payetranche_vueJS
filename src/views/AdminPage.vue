@@ -20,6 +20,7 @@ import {
 import DashboardHeader from '../components/dashboard/DashboardHeader.vue';
 import MobileMoneyIcon from '../components/dashboard/MobileMoneyIcon.vue';
 import { adminService } from '../services/admin.service.js';
+import { getUserFriendlyError } from '../utils/userFriendlyError.js';
 
 const loading = ref(false);
 const actionLoadingId = ref(null);
@@ -145,7 +146,7 @@ const loadAdmin = async () => {
     payouts.value = payoutsData;
     paymentConfig.value = paymentConfigData;
   } catch (loadError) {
-    error.value = loadError.response?.data?.message || loadError.message || 'Accès admin impossible';
+    error.value = getUserFriendlyError(loadError, 'admin');
   } finally {
     loading.value = false;
   }
@@ -160,7 +161,7 @@ const loadPayouts = async () => {
       status: payoutStatus.value
     });
   } catch (loadError) {
-    error.value = loadError.response?.data?.message || loadError.message || 'Reversements impossibles à charger';
+    error.value = getUserFriendlyError(loadError, 'admin');
   } finally {
     loading.value = false;
   }
@@ -173,7 +174,7 @@ const toggleTenant = async (tenant) => {
     await adminService.updateTenantStatus(tenant.id, !tenant.isActive);
     await loadAdmin();
   } catch (toggleError) {
-    error.value = toggleError.response?.data?.message || toggleError.message || 'Action impossible';
+    error.value = getUserFriendlyError(toggleError, 'admin');
   } finally {
     actionLoadingId.value = null;
   }
@@ -189,7 +190,7 @@ const setPlan = async (user, plan) => {
     await adminService.updateUserPlan(user.id, plan, expiry);
     await loadAdmin();
   } catch (planError) {
-    error.value = planError.response?.data?.message || planError.message || 'Plan non modifié';
+    error.value = getUserFriendlyError(planError, 'admin');
   } finally {
     actionLoadingId.value = null;
   }
@@ -202,7 +203,7 @@ const syncPayout = async (payout) => {
     await adminService.syncPayout(payout.id);
     await loadAdmin();
   } catch (syncError) {
-    error.value = syncError.response?.data?.message || syncError.message || 'Synchronisation impossible';
+    error.value = getUserFriendlyError(syncError, 'admin');
   } finally {
     actionLoadingId.value = null;
   }
@@ -215,7 +216,7 @@ const sendPayout = async (payout) => {
     await adminService.sendPayout(payout.id);
     await loadAdmin();
   } catch (sendError) {
-    error.value = sendError.response?.data?.message || sendError.message || 'Reversement impossible';
+    error.value = getUserFriendlyError(sendError, 'admin');
   } finally {
     actionLoadingId.value = null;
   }
@@ -253,7 +254,7 @@ const savePayoutDestination = async (payout) => {
     closePayoutForms();
     await loadPayouts();
   } catch (destinationError) {
-    error.value = destinationError.response?.data?.message || destinationError.message || 'Compte vendeur non modifié';
+    error.value = getUserFriendlyError(destinationError, 'admin');
   } finally {
     actionLoadingId.value = null;
   }
@@ -267,7 +268,7 @@ const markPayoutManual = async (payout) => {
     closePayoutForms();
     await loadAdmin();
   } catch (manualError) {
-    error.value = manualError.response?.data?.message || manualError.message || 'Paiement manuel non enregistré';
+    error.value = getUserFriendlyError(manualError, 'admin');
   } finally {
     actionLoadingId.value = null;
   }

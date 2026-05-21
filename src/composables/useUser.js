@@ -7,6 +7,7 @@ import { transactionService } from '../services/transaction.service.js';
 import { clientService } from '../services/client.service.js';
 import { useUserStore } from '../stores/user.js';
 import { subscriptionPlans as defaultPlans } from '../data/subscriptionPlans.js';
+import { getUserFriendlyError } from '../utils/userFriendlyError.js';
 
 const user = ref(null);
 const subscriptionPlans = ref(defaultPlans);
@@ -147,7 +148,7 @@ const socialLogin = async (provider, options = {}) => {
     }
     return result;
   } catch (error) {
-    return { success: false, error: error.message };
+    return { success: false, error: getUserFriendlyError(error, 'auth') };
   } finally {
     loading.value = false;
   }
@@ -169,7 +170,7 @@ const completeSocialLogin = async () => {
     }
     return result;
   } catch (error) {
-    return { success: false, error: error.message };
+    return { success: false, error: getUserFriendlyError(error, 'auth') };
   } finally {
     loading.value = false;
   }
@@ -192,7 +193,7 @@ const logout = async () => {
     userStore.isAuthenticated = false;
     return { success: true };
   } catch (error) {
-    return { success: false, error: error.message };
+    return { success: false, error: getUserFriendlyError(error, 'auth') };
   } finally {
     loading.value = false;
   }
@@ -210,7 +211,7 @@ const updateProfile = async (profileData) => {
     }
     return { success: true };
   } catch (error) {
-    return { success: false, error: error.message };
+    return { success: false, error: getUserFriendlyError(error, 'default') };
   } finally {
     loading.value = false;
   }
@@ -227,7 +228,7 @@ const updateSubscription = async (newPlan) => {
     }
     return result;
   } catch (error) {
-    return { success: false, error: error.message };
+    return { success: false, error: getUserFriendlyError(error, 'save') };
   } finally {
     loading.value = false;
   }
@@ -241,7 +242,7 @@ const cancelSubscription = async () => {
     await loadUser();
     return { success: true };
   } catch (error) {
-    return { success: false, error: error.message };
+    return { success: false, error: getUserFriendlyError(error, 'payment') };
   } finally {
     loading.value = false;
   }
@@ -255,7 +256,7 @@ const reactivateSubscription = async () => {
     await loadUser();
     return { success: true };
   } catch (error) {
-    return { success: false, error: error.message };
+    return { success: false, error: getUserFriendlyError(error, 'payment') };
   } finally {
     loading.value = false;
   }

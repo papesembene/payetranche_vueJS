@@ -1,4 +1,5 @@
 import { http } from './http.js';
+import { getUserFriendlyError } from '../utils/userFriendlyError.js';
 
 class PaytechService {
   async createCreditPayment(creditId, data = {}) {
@@ -12,7 +13,7 @@ class PaytechService {
 
       return response.data.data;
     } catch (error) {
-      throw new Error(error.response?.data?.message || 'Erreur lors de la création du paiement PayTech');
+      throw new Error(getUserFriendlyError(error, 'payment'));
     }
   }
 
@@ -26,7 +27,7 @@ class PaytechService {
       const response = await http.post(`/paytech/payments/${paymentRequestId}/simulate`);
       return response.data.data;
     } catch (error) {
-      throw new Error(error.response?.data?.message || 'Simulation PayTech impossible');
+      throw new Error(getUserFriendlyError(error, 'payment'));
     }
   }
 }

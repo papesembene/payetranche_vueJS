@@ -1,4 +1,5 @@
 import { http } from './http.js';
+import { getUserFriendlyError } from '../utils/userFriendlyError.js';
 
 const creditStatusToTransaction = (status) => {
   if (status === 'PAYE') return 'completed';
@@ -64,7 +65,7 @@ class TransactionService {
 
       return transactions.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
     } catch (error) {
-      throw new Error(error.response?.data?.message || 'Erreur lors du chargement des transactions');
+      throw new Error(getUserFriendlyError(error, 'load'));
     }
   }
 
@@ -73,7 +74,7 @@ class TransactionService {
       const response = await http.get(`/credits/${transactionId}`);
       return normalizeCredit(response.data.data);
     } catch (error) {
-      throw new Error(error.response?.data?.message || 'Erreur lors du chargement de la transaction');
+      throw new Error(getUserFriendlyError(error, 'load'));
     }
   }
 
@@ -82,7 +83,7 @@ class TransactionService {
       const response = await http.get(`/credits/${creditId}/timeline`);
       return response.data.data || [];
     } catch (error) {
-      throw new Error(error.response?.data?.message || 'Erreur lors du chargement de l’historique');
+      throw new Error(getUserFriendlyError(error, 'load'));
     }
   }
 
@@ -124,7 +125,7 @@ class TransactionService {
 
       return normalizeCredit(response.data.data);
     } catch (error) {
-      throw new Error(error.response?.data?.message || 'Erreur lors de la création de la transaction');
+      throw new Error(getUserFriendlyError(error, 'save'));
     }
   }
 
@@ -141,7 +142,7 @@ class TransactionService {
       const response = await http.patch(`/credits/${transactionId}`, payload);
       return normalizeCredit(response.data.data);
     } catch (error) {
-      throw new Error(error.response?.data?.message || 'Erreur lors de la mise à jour de la transaction');
+      throw new Error(getUserFriendlyError(error, 'save'));
     }
   }
 
@@ -150,7 +151,7 @@ class TransactionService {
       await http.delete(`/credits/${transactionId}`);
       return { success: true };
     } catch (error) {
-      throw new Error(error.response?.data?.message || 'Erreur lors de la suppression de la transaction');
+      throw new Error(getUserFriendlyError(error, 'save'));
     }
   }
 
@@ -171,7 +172,7 @@ class TransactionService {
 
       return normalizePayment(response.data.data);
     } catch (error) {
-      throw new Error(error.response?.data?.message || 'Erreur lors du marquage comme payé');
+      throw new Error(getUserFriendlyError(error, 'payment'));
     }
   }
 

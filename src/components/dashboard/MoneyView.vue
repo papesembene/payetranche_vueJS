@@ -3,6 +3,7 @@ import { computed, onMounted, reactive, ref } from 'vue';
 import { Smartphone, RefreshCw, CheckCircle } from 'lucide-vue-next';
 import { payoutService } from '../../services/payout.service.js';
 import MobileMoneyIcon from './MobileMoneyIcon.vue';
+import { getUserFriendlyError } from '../../utils/userFriendlyError.js';
 
 const loading = ref(true);
 const saving = ref(false);
@@ -52,7 +53,7 @@ const loadData = async () => {
       form.isDefault = selectedProfile.isDefault;
     }
   } catch (err) {
-    error.value = err.response?.data?.message || err.message || 'Impossible de charger vos numéros.';
+    error.value = getUserFriendlyError(err, 'load');
   } finally {
     loading.value = false;
   }
@@ -68,7 +69,7 @@ const saveProfile = async () => {
     success.value = 'Compte enregistré.';
     await loadData();
   } catch (err) {
-    error.value = err.response?.data?.message || err.message || 'Impossible d’enregistrer le compte.';
+    error.value = getUserFriendlyError(err, 'save');
   } finally {
     saving.value = false;
   }

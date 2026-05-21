@@ -1,4 +1,5 @@
 import { http } from './http.js';
+import { getUserFriendlyError } from '../utils/userFriendlyError.js';
 
 const normalizeInstallment = (installment) => ({
   ...installment,
@@ -40,7 +41,7 @@ class InstallmentService {
       });
       return response.data.data;
     } catch (error) {
-      throw new Error(error.response?.data?.message || 'Impossible de payer cette tranche');
+      throw new Error(getUserFriendlyError(error, 'payment'));
     }
   }
 

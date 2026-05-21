@@ -3,6 +3,7 @@ import { computed, onMounted, ref, watch } from 'vue';
 import { AlertTriangle, CheckCircle2, Copy, MessageCircle, RefreshCw } from 'lucide-vue-next';
 import { notificationService } from '../../services/notification.service.js';
 import { safeFormatDate } from '../../utils/export.js';
+import { getUserFriendlyError } from '../../utils/userFriendlyError.js';
 
 const props = defineProps({
   refresh: {
@@ -47,7 +48,7 @@ const loadReminders = async () => {
   try {
     reminders.value = await notificationService.getTodayReminders();
   } catch (loadError) {
-    error.value = loadError.message || 'Relances indisponibles';
+    error.value = getUserFriendlyError(loadError, 'reminders');
   } finally {
     loading.value = false;
   }
@@ -61,7 +62,7 @@ const markReminder = async (reminder) => {
     await loadReminders();
     emit('updated');
   } catch (markError) {
-    error.value = markError.response?.data?.message || markError.message || 'Relance non enregistrée';
+    error.value = getUserFriendlyError(markError, 'reminders');
   } finally {
     markingId.value = '';
   }

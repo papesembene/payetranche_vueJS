@@ -6,6 +6,7 @@ import { authService } from '../services/auth.service.js';
 import { SessionService } from '../services/session.service.js';
 import { useUserStore } from '../stores/user.js';
 import { getPostAuthPath } from '../utils/access.js';
+import { getUserFriendlyError } from '../utils/userFriendlyError.js';
 
 const router = useRouter();
 const userStore = useUserStore();
@@ -48,7 +49,7 @@ onMounted(async () => {
 
     router.replace(getPostAuthPath(result.user));
   } catch (callbackError) {
-    error.value = callbackError.message || 'Connexion sociale impossible.';
+    error.value = getUserFriendlyError(callbackError, 'auth');
     authService.clearSocialAuthMemory();
     localStorage.removeItem('auth_token');
   }

@@ -5,6 +5,7 @@ import Swal from 'sweetalert2';
 import { clientService } from '../../services/client.service.js';
 import { useUserStore } from '../../stores/user.js';
 import { useUser } from '../../composables/useUser.js';
+import { getUserFriendlyError } from '../../utils/userFriendlyError.js';
 
 const props = defineProps({
   show: {
@@ -175,7 +176,7 @@ const submitForm = async () => {
     return savedClient;
   } catch (error) {
     console.error('Erreur sauvegarde client:', error);
-    alert(error.message || 'Une erreur est survenue lors de la sauvegarde. Veuillez réessayer.');
+    alert(getUserFriendlyError(error, 'save'));
   } finally {
     loading.value = false;
   }

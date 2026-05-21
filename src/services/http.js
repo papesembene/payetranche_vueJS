@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { getUserFriendlyError } from '../utils/userFriendlyError.js';
 
 // Configuration HTTP client
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
@@ -43,6 +44,7 @@ http.interceptors.response.use(
     return response;
   },
   (error) => {
+    error.userMessage = getUserFriendlyError(error);
     const authEndpoints = ['/auth/social'];
     const requestUrl = error.config?.url || '';
     const isAuthRequest = authEndpoints.some((endpoint) => requestUrl.includes(endpoint));

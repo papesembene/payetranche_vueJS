@@ -1,4 +1,5 @@
 import { http } from './http.js';
+import { getUserFriendlyError } from '../utils/userFriendlyError.js';
 
 const backendStatusToFrontend = (status) => {
   if (status === 'BON') return 'active';
@@ -41,7 +42,7 @@ class ClientService {
 
       return clients;
     } catch (error) {
-      throw new Error(error.response?.data?.message || 'Erreur lors du chargement des clients');
+      throw new Error(getUserFriendlyError(error, 'load'));
     }
   }
 
@@ -50,7 +51,7 @@ class ClientService {
       const response = await http.get(`/clients/${clientId}`);
       return normalizeClient(response.data.data);
     } catch (error) {
-      throw new Error(error.response?.data?.message || 'Erreur lors du chargement du client');
+      throw new Error(getUserFriendlyError(error, 'load'));
     }
   }
 
@@ -95,7 +96,7 @@ class ClientService {
 
       return normalizeClient(client);
     } catch (error) {
-      throw new Error(error.response?.data?.message || 'Erreur lors de la création du client');
+      throw new Error(getUserFriendlyError(error, 'save'));
     }
   }
 
@@ -112,7 +113,7 @@ class ClientService {
       const response = await http.patch(`/clients/${clientId}`, payload);
       return normalizeClient(response.data.data);
     } catch (error) {
-      throw new Error(error.response?.data?.message || 'Erreur lors de la mise à jour du client');
+      throw new Error(getUserFriendlyError(error, 'save'));
     }
   }
 
@@ -121,7 +122,7 @@ class ClientService {
       await http.delete(`/clients/${clientId}`);
       return { success: true };
     } catch (error) {
-      throw new Error(error.response?.data?.message || 'Erreur lors de la suppression du client');
+      throw new Error(getUserFriendlyError(error, 'save'));
     }
   }
 

@@ -1,6 +1,7 @@
 import { http, USE_MOCK } from './http.js';
 import { firestoreService } from './firestore.service.js';
 import { useUserStore } from '../stores/user.js';
+import { getUserFriendlyError } from '../utils/userFriendlyError.js';
 
 /**
  * Service de gestion des paiements
@@ -79,7 +80,7 @@ class PaymentService {
 
       return response.data;
     } catch (error) {
-      throw new Error(error.response?.data?.message || 'Erreur lors de la création du paiement');
+      throw new Error(getUserFriendlyError(error, 'payment'));
     }
   }
 
@@ -151,7 +152,7 @@ class PaymentService {
         const payment = await firestoreService.getPaymentByPaymentIntent(paymentIntentId);
         if (payment) {
           await firestoreService.updatePaymentStatus(payment.id, 'failed', {
-            error: error.message,
+            error: getUserFriendlyError(error, 'payment'),
             failedAt: new Date()
           });
         }
@@ -159,7 +160,7 @@ class PaymentService {
         console.error('❌ Erreur mise à jour statut failed:', firestoreError);
       }
 
-      throw new Error(error.response?.data?.message || 'Erreur lors de la confirmation du paiement');
+      throw new Error(getUserFriendlyError(error, 'payment'));
     }
   }
 
@@ -189,7 +190,7 @@ class PaymentService {
       });
       return response.data;
     } catch (error) {
-      throw new Error(error.response?.data?.message || 'Erreur lors de l\'ajout de la méthode de paiement');
+      throw new Error(getUserFriendlyError(error, 'payment'));
     }
   }
 
@@ -203,7 +204,7 @@ class PaymentService {
       const response = await http.delete(`/payment/methods/${paymentMethodId}`);
       return response.data;
     } catch (error) {
-      throw new Error(error.response?.data?.message || 'Erreur lors de la suppression de la méthode de paiement');
+      throw new Error(getUserFriendlyError(error, 'payment'));
     }
   }
 
@@ -219,7 +220,7 @@ class PaymentService {
       });
       return response.data;
     } catch (error) {
-      throw new Error(error.response?.data?.message || 'Erreur lors de la définition de la méthode par défaut');
+      throw new Error(getUserFriendlyError(error, 'payment'));
     }
   }
 
@@ -261,7 +262,7 @@ class PaymentService {
       });
       return response.data;
     } catch (error) {
-      throw new Error(error.response?.data?.message || 'Erreur lors du traitement du remboursement');
+      throw new Error(getUserFriendlyError(error, 'payment'));
     }
   }
 
@@ -292,7 +293,7 @@ class PaymentService {
       const response = await http.get(`/payment/transactions?${params}`);
       return response.data;
     } catch (error) {
-      throw new Error(error.response?.data?.message || 'Erreur lors du chargement de l\'historique');
+      throw new Error(getUserFriendlyError(error, 'load'));
     }
   }
 
@@ -312,7 +313,7 @@ class PaymentService {
     } catch (error) {
       return {
         valid: false,
-        error: error.response?.data?.message || 'Coupon invalide'
+        error: getUserFriendlyError(error, 'payment')
       };
     }
   }
@@ -345,7 +346,7 @@ class PaymentService {
         coupon: validation
       };
     } catch (error) {
-      throw new Error(error.message || 'Erreur lors de l\'application du coupon');
+      throw new Error(getUserFriendlyError(error, 'payment'));
     }
   }
 }

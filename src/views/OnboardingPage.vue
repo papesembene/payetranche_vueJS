@@ -5,6 +5,7 @@ import { CheckCircle, Phone, Store, Wallet } from 'lucide-vue-next';
 import { onboardingService } from '../services/onboarding.service.js';
 import { useUserStore } from '../stores/user.js';
 import MobileMoneyIcon from '../components/dashboard/MobileMoneyIcon.vue';
+import { getUserFriendlyError } from '../utils/userFriendlyError.js';
 
 const router = useRouter();
 const userStore = useUserStore();
@@ -67,7 +68,7 @@ const loadStatus = async () => {
       router.replace(getPostOnboardingRedirect());
     }
   } catch (error) {
-    errors.value.general = error.response?.data?.message || error.message || 'Impossible de charger le profil';
+    errors.value.general = getUserFriendlyError(error, 'load');
   } finally {
     loading.value = false;
   }
@@ -126,7 +127,7 @@ const submit = async () => {
     userStore.isAuthenticated = true;
     router.replace(getPostOnboardingRedirect());
   } catch (error) {
-    errors.value.general = error.response?.data?.message || error.message || 'Profil incomplet';
+    errors.value.general = getUserFriendlyError(error, 'save');
   } finally {
     saving.value = false;
   }
