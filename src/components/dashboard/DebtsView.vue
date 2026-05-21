@@ -30,6 +30,7 @@ const showPaymentModal = ref(false);
 const showPlanModal = ref(false);
 const showPaymentLinkModal = ref(false);
 const selectedDebt = ref(null);
+const selectedInstallment = ref(null);
 const errors = ref({});
 const linkCopied = ref(false);
 const generatedPaymentLink = ref({
@@ -39,7 +40,7 @@ const generatedPaymentLink = ref({
   clientPhone: '',
   amount: 0,
   label: '',
-  kind: 'paytech'
+  kind: 'portal'
 });
 
 const debtForm = ref({
@@ -59,6 +60,8 @@ const debtForm = ref({
 
 const paymentForm = ref({
   amount: '',
+  method: 'WAVE',
+  reference: '',
   description: ''
 });
 
@@ -69,6 +72,11 @@ const planForm = ref({
 });
 
 const statusFilters = ['À récupérer', 'En retard', 'Payées', 'Toutes'];
+const paymentMethods = [
+  { value: 'WAVE', label: 'Wave' },
+  { value: 'ORANGE_MONEY', label: 'Orange Money' },
+  { value: 'CASH', label: 'Espèces' }
+];
 
 watch(() => props.refresh, () => {
   loadData();
@@ -94,7 +102,7 @@ const getPaymentLinkMessage = () => {
   const label = generatedPaymentLink.value.label || 'paiement';
 
   if (generatedPaymentLink.value.kind === 'portal') {
-    return `Bonjour ${clientName}, voici votre lien de suivi PayTranche. Vous pouvez voir votre solde et payer la prochaine tranche ici: ${generatedPaymentLink.value.url}`;
+    return `Bonjour ${clientName}, voici votre lien PayTranche. Vous pouvez voir votre solde, vos tranches et les numéros Wave/Orange Money du vendeur ici: ${generatedPaymentLink.value.url}`;
   }
 
   return `Bonjour ${clientName}, voici votre lien de ${label} PayTranche de ${amount}: ${generatedPaymentLink.value.url}`;
@@ -471,11 +479,14 @@ const createDebt = async () => {
   }
 };
 
-const openPaymentModal = (debt) => {
+const openPaymentModal = (debt, installment = null) => {
   selectedDebt.value = debt;
+  selectedInstallment.value = installment;
   paymentForm.value = {
-    amount: debt.remainingAmount || debt.amount,
-    description: 'Paiement reçu'
+    amount: installment?.remainingAmount || debt.remainingAmount || debt.amount,
+    method: 'WAVE',
+    reference: '',
+    description: installment ? `Tranche ${installment.number}` : 'Paiement reçu'
   };
   errors.value = {};
   showPaymentModal.value = true;
@@ -484,6 +495,7 @@ const openPaymentModal = (debt) => {
 const closePaymentModal = () => {
   showPaymentModal.value = false;
   selectedDebt.value = null;
+  selectedInstallment.value = null;
 };
 
 const openPlanModal = (debt) => {
@@ -531,30 +543,10 @@ const createInstallmentPlan = async () => {
   }
 };
 
-const payInstallment = async (installment) => {
-  if (!installment?.id || installment.remainingAmount <= 0 || installment.status === 'PAYEE') {
-    await loadData();
-    return;
-  }
-
-  try {
-    actionLoadingId.value = installment.id;
-    await installmentService.payInstallment(installment.id);
-    await loadData();
-    if (isExpanded(installment.creditId)) {
-      await loadDebtTimeline(installment.creditId, true);
-    }
-    emit('updated');
-  } catch (error) {
-    const message = error.message || 'Impossible de payer cette tranche';
-    if (message.toLowerCase().includes('already paid') || message.toLowerCase().includes('déjà')) {
-      await loadData();
-      return;
-    }
-    alert(message);
-  } finally {
-    actionLoadingId.value = null;
-  }
+const buildPaymentReference = () => {
+  const label = paymentForm.value.description?.trim() || 'Paiement reçu';
+  const proof = paymentForm.value.reference?.trim();
+  return proof ? `${label} - Preuve: ${proof}` : label;
 };
 
 const collectPayment = async () => {
@@ -563,18 +555,29 @@ const collectPayment = async () => {
   const amount = Number(paymentForm.value.amount || 0);
 
   if (!amount || amount <= 0) errors.value.amount = 'Montant requis';
-  if (amount > selectedDebt.value.remainingAmount) {
+  const remainingBalance = selectedInstallment.value?.remainingAmount || selectedDebt.value.remainingAmount;
+
+  if (amount > remainingBalance) {
     errors.value.amount = 'Le paiement dépasse le solde restant';
   }
 
   if (Object.keys(errors.value).length > 0) return;
 
   try {
-    actionLoadingId.value = selectedDebt.value.id;
-    await transactionService.markAsPaid(selectedDebt.value.id, {
+    actionLoadingId.value = selectedInstallment.value?.id || selectedDebt.value.id;
+    const paymentPayload = {
       amount,
+      method: paymentForm.value.method,
+      reference: buildPaymentReference(),
       description: paymentForm.value.description
-    });
+    };
+
+    if (selectedInstallment.value) {
+      await installmentService.payInstallment(selectedInstallment.value.id, paymentPayload);
+    } else {
+      await transactionService.markAsPaid(selectedDebt.value.id, paymentPayload);
+    }
+
     await loadData();
     if (isExpanded(selectedDebt.value.id)) {
       await loadDebtTimeline(selectedDebt.value.id, true);
@@ -708,6 +711,7 @@ onMounted(() => {
                 Envoyer au client
               </button>
               <button
+                v-if="debt.installments.length === 0"
                 @click="openPaymentModal(debt)"
                 class="inline-flex items-center justify-center gap-2 rounded-lg border border-green-200 px-4 py-3 text-sm font-semibold text-green-700 hover:bg-green-50"
               >
@@ -768,7 +772,7 @@ onMounted(() => {
               </div>
               <div v-if="installment.remainingAmount > 0" class="mt-3">
                 <button
-                  @click="payInstallment(installment)"
+                  @click="openPaymentModal(debt, installment)"
                   :disabled="actionLoadingId === installment.id"
                   class="w-full px-3 py-2 border border-green-200 text-green-700 hover:bg-green-50 text-sm font-semibold rounded-lg disabled:opacity-60"
                 >
@@ -995,18 +999,55 @@ onMounted(() => {
 
           <div class="bg-gray-50 border border-gray-200 rounded-xl p-4">
             <p class="font-semibold text-gray-900">{{ selectedDebt?.clientName }}</p>
-            <p class="text-sm text-gray-600">Solde restant : {{ formatAmount(selectedDebt?.remainingAmount) }}</p>
+            <p class="text-sm text-gray-600">
+              {{ selectedInstallment ? `Tranche ${selectedInstallment.number}` : 'Solde restant' }} :
+              {{ formatAmount(selectedInstallment?.remainingAmount || selectedDebt?.remainingAmount) }}
+            </p>
           </div>
 
           <div>
             <label class="block text-sm font-semibold text-gray-700 mb-2">Montant reçu</label>
-            <input v-model="paymentForm.amount" type="number" min="1" :max="selectedDebt?.remainingAmount" class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500" />
+            <input v-model="paymentForm.amount" type="number" min="1" :max="selectedInstallment?.remainingAmount || selectedDebt?.remainingAmount" class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500" />
             <p v-if="errors.amount" class="text-xs text-red-600 mt-1">{{ errors.amount }}</p>
           </div>
 
           <div>
+            <label class="block text-sm font-semibold text-gray-700 mb-2">Reçu par</label>
+            <div class="grid grid-cols-3 gap-2">
+              <button
+                v-for="method in paymentMethods"
+                :key="method.value"
+                type="button"
+                @click="paymentForm.method = method.value"
+                :class="[
+                  'rounded-lg border px-2 py-3 text-sm font-bold',
+                  paymentForm.method === method.value
+                    ? 'border-teal-500 bg-teal-50 text-teal-700'
+                    : 'border-gray-200 text-gray-700'
+                ]"
+              >
+                {{ method.label }}
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-sm font-semibold text-gray-700 mb-2">Preuve ou référence</label>
+            <input
+              v-model.trim="paymentForm.reference"
+              type="text"
+              placeholder="Ex: reçu Wave, ID transaction, capture Orange Money"
+              class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500"
+            />
+          </div>
+
+          <div>
             <label class="block text-sm font-semibold text-gray-700 mb-2">Note</label>
-            <input v-model="paymentForm.description" type="text" class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500" />
+            <input
+              v-model.trim="paymentForm.description"
+              type="text"
+              class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500"
+            />
           </div>
 
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-4">
@@ -1078,7 +1119,7 @@ onMounted(() => {
           <div class="rounded-xl border border-gray-200 bg-gray-50 p-4">
             <p class="font-semibold text-gray-950">{{ generatedPaymentLink.clientName }}</p>
             <p class="text-sm text-gray-600">
-              {{ generatedPaymentLink.kind === 'portal' ? 'Solde actuel' : 'Montant' }} : {{ formatAmount(generatedPaymentLink.amount) }}
+              Solde actuel : {{ formatAmount(generatedPaymentLink.amount) }}
             </p>
           </div>
 

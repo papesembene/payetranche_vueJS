@@ -1,7 +1,7 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { ArrowLeft, Check, CreditCard, Crown, Loader2, User, Wallet } from 'lucide-vue-next';
+import { ArrowLeft, Check, Crown, User, Wallet } from 'lucide-vue-next';
 import DashboardHeader from '../components/dashboard/DashboardHeader.vue';
 import { useUser } from '../composables/useUser.js';
 import { subscriptionPlans } from '../data/subscriptionPlans.js';
@@ -13,12 +13,10 @@ const { user, loadUser, updateProfile } = useUser();
 
 const activeTab = ref(route.query.tab === 'subscription' ? 'subscription' : 'profile');
 const loading = ref(false);
-const paymentLoading = ref(false);
 const message = ref('');
 const error = ref('');
 const subscription = ref(null);
 const billingHistory = ref([]);
-const targetPayment = ref('Orange Money, Wave');
 
 const profileForm = ref({
   name: '',
@@ -73,7 +71,7 @@ const loadSubscription = async () => {
     billingHistory.value = await subscriptionService.getBillingHistory();
 
     if (route.query.payment === 'success') {
-      message.value = 'Paiement reçu par PayTech. Le plan Pro s’active dès que la confirmation arrive.';
+      message.value = 'Paiement reçu. Le plan Pro s’active dès confirmation.';
     } else if (route.query.payment === 'cancel') {
       error.value = 'Paiement annulé. Votre plan n’a pas changé.';
     }
@@ -97,27 +95,6 @@ const saveProfile = async () => {
     }
   } finally {
     loading.value = false;
-  }
-};
-
-const payPro = async () => {
-  paymentLoading.value = true;
-  error.value = '';
-  message.value = '';
-  try {
-    const result = await subscriptionService.createCheckout('pro', {
-      targetPayment: targetPayment.value
-    });
-
-    if (!result.checkout?.redirectUrl) {
-      throw new Error('PayTech n’a pas renvoyé de lien de paiement');
-    }
-
-    window.location.href = result.checkout.redirectUrl;
-  } catch (checkoutError) {
-    error.value = checkoutError.message || 'Impossible de créer le paiement Pro';
-  } finally {
-    paymentLoading.value = false;
   }
 };
 
@@ -255,25 +232,8 @@ onMounted(loadSubscription);
               <div class="flex items-center gap-2"><Check :size="16" class="text-teal-600" />Historique paiements</div>
             </div>
 
-            <div v-if="!isPro" class="grid gap-3 sm:grid-cols-[1fr_auto]">
-              <select
-                v-model="targetPayment"
-                class="rounded-lg border border-slate-300 px-3 py-3 text-base outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-100"
-              >
-                <option value="Orange Money, Wave">Orange Money + Wave</option>
-                <option value="Wave">Wave</option>
-                <option value="Orange Money">Orange Money</option>
-              </select>
-              <button
-                type="button"
-                :disabled="paymentLoading"
-                class="flex items-center justify-center gap-2 rounded-lg bg-teal-600 px-5 py-3 text-base font-black text-white disabled:opacity-60"
-                @click="payPro"
-              >
-                <Loader2 v-if="paymentLoading" :size="18" class="animate-spin" />
-                <CreditCard v-else :size="18" />
-                Payer Pro
-              </button>
+            <div v-if="!isPro" class="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm font-bold text-amber-800">
+              L’activation Pro se fera manuellement au lancement. Pour le moment, gardez le plan gratuit pour tester le suivi.
             </div>
           </article>
         </div>

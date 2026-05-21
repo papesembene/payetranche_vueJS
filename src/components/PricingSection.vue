@@ -17,7 +17,7 @@ const plans = [
     period: '/ mois',
     description: 'Pour les vendeurs qui utilisent PayTranche au quotidien.',
     highlighted: true,
-    features: ['Clients illimités', 'Paiements PayTech', 'Relances WhatsApp', 'Reversements vendeur suivis']
+    features: ['Clients illimités', 'Paiements Wave/Orange Money', 'Relances WhatsApp', 'Preuves de paiement']
   }
 ];
 </script>

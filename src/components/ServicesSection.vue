@@ -15,12 +15,12 @@ const steps = [
   {
     icon: Link2,
     title: '3. Envoyer le lien client',
-    description: 'Le client garde un lien de suivi pour consulter sa dette et payer la prochaine tranche sans compte.'
+    description: 'Le client garde un lien de suivi pour consulter sa dette, ses tranches et les numéros du vendeur.'
   },
   {
     icon: Smartphone,
-    title: '4. Encaisser via PayTech',
-    description: 'Le client paie par Wave ou Orange Money. Le backend confirme le paiement et met à jour la dette.'
+    title: '4. Recevoir le paiement',
+    description: 'Le client paie directement le vendeur par Wave, Orange Money ou espèces.'
   },
   {
     icon: MessageCircle,
@@ -29,8 +29,8 @@ const steps = [
   },
   {
     icon: WalletCards,
-    title: '6. Suivre les reversements',
-    description: 'L’admin suit les reversements vers les comptes Wave ou Orange Money des vendeurs.'
+    title: '6. Garder la preuve',
+    description: 'Le vendeur note la référence du reçu Wave ou Orange Money dans l’historique.'
   }
 ];
 </script>
@@ -69,13 +69,13 @@ const steps = [
           <div>
             <h3 class="text-2xl font-black">Le client ne crée pas de compte.</h3>
             <p class="mt-2 text-white/90">
-              Il ouvre son lien de suivi, voit ce qu’il reste à payer et clique sur payer quand il est prêt.
+              Il ouvre son lien de suivi, voit ce qu’il reste à payer et paie directement sur le numéro du vendeur.
             </p>
           </div>
           <div class="grid gap-2 text-sm font-bold sm:grid-cols-3 lg:min-w-[520px]">
             <span class="inline-flex items-center gap-2 rounded-lg bg-white/10 px-3 py-2"><Check :size="17" /> Solde clair</span>
             <span class="inline-flex items-center gap-2 rounded-lg bg-white/10 px-3 py-2"><Check :size="17" /> Tranches visibles</span>
-            <span class="inline-flex items-center gap-2 rounded-lg bg-white/10 px-3 py-2"><Check :size="17" /> Paiement Mobile Money</span>
+            <span class="inline-flex items-center gap-2 rounded-lg bg-white/10 px-3 py-2"><Check :size="17" /> Numéros Wave/OM</span>
           </div>
         </div>
       </div>

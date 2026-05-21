@@ -7,7 +7,7 @@
 
       <h1 class="text-2xl font-bold text-gray-900 mb-2">Paiement annulé</h1>
       <p class="text-gray-600 mb-6">
-        Aucun paiement n’a été confirmé. Vous pouvez relancer le lien PayTech depuis la liste des paiements.
+        Aucun paiement n’a été confirmé. Contactez le vendeur si vous avez déjà envoyé l’argent.
       </p>
 
       <button

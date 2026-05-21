@@ -11,7 +11,7 @@
         <!-- Title -->
         <h1 class="text-2xl font-bold text-gray-900 mb-2">Paiement réussi</h1>
         <p class="text-gray-600 mb-6">
-          Le paiement a été reçu. La dette sera mise à jour automatiquement après confirmation PayTech.
+          Le paiement a été reçu. Gardez la référence comme preuve.
         </p>
 
         <!-- Payment Details -->
@@ -54,10 +54,6 @@
           </button>
         </div>
 
-        <!-- Footer -->
-        <p class="text-xs text-gray-500 mt-6">
-          Sécurisé par PayTech
-        </p>
       </div>
     </div>
   </div>

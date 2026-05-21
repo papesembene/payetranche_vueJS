@@ -46,9 +46,9 @@ const navItems = [
   },
   {
     id: 'money',
-    label: 'Mon argent',
-    mobileLabel: 'Argent',
-    helper: 'Compte Wave/OM et reversements vendeur',
+    label: 'Mes numéros',
+    mobileLabel: 'Numéros',
+    helper: 'Numéros Wave/OM montrés au client',
     icon: Wallet
   }
 ];

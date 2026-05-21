@@ -18,17 +18,17 @@ const mainFeatures = [
   {
     icon: Link2,
     title: 'Lien de suivi client',
-    description: 'Le client reçoit un lien permanent pour voir son solde, ses tranches et payer sans créer de compte.'
+    description: 'Le client reçoit un lien permanent pour voir son solde, ses tranches et les numéros du vendeur.'
   },
   {
     icon: Smartphone,
-    title: 'Paiement Mobile Money',
-    description: 'Les paiements clients passent par PayTech avec Wave et Orange Money.'
+    title: 'Paiement direct',
+    description: 'Le client paie directement le vendeur par Wave, Orange Money ou espèces.'
   },
   {
     icon: WalletCards,
-    title: 'Reversements vendeur',
-    description: 'L’argent encaissé est suivi côté admin avant reversement vers le compte Wave ou Orange Money du vendeur.'
+    title: 'Preuves de paiement',
+    description: 'Le vendeur enregistre le moyen de paiement et la référence du reçu.'
   }
 ];
 

@@ -16,6 +16,7 @@ const progress = computed(() => {
   if (!credit?.amount) return 0;
   return Math.min(Math.round((Number(credit.paidAmount || 0) / Number(credit.amount)) * 100), 100);
 });
+const sellerPaymentAccounts = computed(() => portal.value?.sellerPaymentAccounts || []);
 
 const formatAmount = (amount) => `${new Intl.NumberFormat('fr-FR').format(Number(amount || 0))} FCFA`;
 
@@ -34,6 +35,17 @@ const installmentStatus = (installment) => {
   if (installment.remainingAmount <= 0 || installment.status === 'PAYEE') return 'Payée';
   if (installment.status === 'EN_RETARD') return 'En retard';
   return 'À venir';
+};
+
+const paymentMethodLabel = (method) => {
+  const labels = {
+    WAVE: 'Wave',
+    ORANGE_MONEY: 'Orange Money',
+    CASH: 'Espèces',
+    BANK_TRANSFER: 'Virement',
+    OTHER: 'Autre'
+  };
+  return labels[method] || 'Paiement';
 };
 
 const loadPortal = async () => {
@@ -135,9 +147,9 @@ onMounted(loadPortal);
           </div>
 
           <button
-            v-if="portal.nextPayment"
+            v-if="portal.nextPayment?.canPayOnline"
             type="button"
-            :disabled="paying || !portal.nextPayment.canPayOnline"
+            :disabled="paying"
             @click="payNext"
             class="mt-5 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-teal-600 px-4 text-base font-black text-white transition-colors hover:bg-teal-700 disabled:bg-gray-300"
           >
@@ -145,12 +157,40 @@ onMounted(loadPortal);
             <Smartphone v-else :size="19" />
             Payer {{ formatAmount(portal.nextPayment.amount) }}
           </button>
+
+          <div v-else-if="portal.nextPayment" class="mt-5 rounded-lg border border-teal-200 bg-teal-50 p-4">
+            <div class="flex items-start gap-3">
+              <Smartphone :size="22" class="mt-1 shrink-0 text-teal-700" />
+              <div class="min-w-0 flex-1">
+                <h3 class="font-black text-teal-950">Payez directement le vendeur</h3>
+                <p class="mt-1 text-sm font-semibold text-teal-800">
+                  Montant demandé : {{ formatAmount(portal.nextPayment.amount) }}
+                </p>
+              </div>
+            </div>
+
+            <div v-if="sellerPaymentAccounts.length > 0" class="mt-4 grid gap-2">
+              <div
+                v-for="account in sellerPaymentAccounts"
+                :key="`${account.operator}-${account.phone}`"
+                class="rounded-lg bg-white p-3 ring-1 ring-teal-100"
+              >
+                <p class="font-black text-gray-950">{{ account.label }}</p>
+                <p class="mt-1 text-lg font-black text-teal-700">{{ account.phone }}</p>
+                <p class="text-sm font-semibold text-gray-500">{{ account.holderName }}</p>
+              </div>
+            </div>
+            <p v-else class="mt-4 rounded-lg bg-white p-3 text-sm font-bold text-amber-700 ring-1 ring-amber-100">
+              Demandez au vendeur son numéro Wave ou Orange Money.
+            </p>
+
+            <p class="mt-3 text-sm font-bold text-teal-900">
+              Après paiement, envoyez le reçu au vendeur. Il validera le paiement dans PayTranche.
+            </p>
+          </div>
           <div v-else class="mt-5 rounded-lg bg-emerald-50 p-4 text-center font-black text-emerald-700">
             Dette totalement soldée
           </div>
-          <p v-if="portal.nextPayment && !portal.nextPayment.canPayOnline" class="mt-2 rounded-lg bg-amber-50 p-3 text-sm font-bold text-amber-700">
-            Le paiement en ligne commence à partir de 101 FCFA.
-          </p>
         </section>
 
         <section v-if="portal.installments.length > 0" class="mt-4 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
@@ -208,7 +248,12 @@ onMounted(loadPortal);
                 <CheckCircle2 :size="18" class="text-emerald-600" />
                 <div>
                   <p class="font-black text-gray-950">{{ formatAmount(payment.amount) }}</p>
-                  <p class="text-xs font-semibold text-gray-500">{{ formatDate(payment.paidAt) }}</p>
+                  <p class="text-xs font-semibold text-gray-500">
+                    {{ paymentMethodLabel(payment.method) }} - {{ formatDate(payment.paidAt) }}
+                  </p>
+                  <p v-if="payment.reference" class="text-xs font-semibold text-gray-500">
+                    {{ payment.reference }}
+                  </p>
                 </div>
               </div>
               <Clock :size="18" class="text-gray-400" />

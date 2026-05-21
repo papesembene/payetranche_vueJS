@@ -1,8 +1,7 @@
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue';
-import { Wallet, Smartphone, RefreshCw, CheckCircle, Clock, AlertCircle } from 'lucide-vue-next';
+import { Smartphone, RefreshCw, CheckCircle } from 'lucide-vue-next';
 import { payoutService } from '../../services/payout.service.js';
-import { safeFormatDate } from '../../utils/export.js';
 import MobileMoneyIcon from './MobileMoneyIcon.vue';
 
 const loading = ref(true);
@@ -10,8 +9,6 @@ const saving = ref(false);
 const error = ref('');
 const success = ref('');
 const profiles = ref([]);
-const wallet = ref(null);
-const payouts = ref([]);
 
 const form = reactive({
   operator: 'WAVE',
@@ -39,41 +36,14 @@ const operatorLabel = (operator) => {
   return operators.find((item) => item.value === operator)?.label || operator?.replace('_', ' ');
 };
 
-const formatAmount = (amount = 0) => {
-  return new Intl.NumberFormat('fr-FR').format(amount) + ' FCFA';
-};
-
-const statusLabel = (status) => {
-  const labels = {
-    PENDING: 'À recevoir',
-    PROCESSING: 'En cours',
-    SENT: 'Versé',
-    FAILED: 'Échoué'
-  };
-  return labels[status] || status;
-};
-
-const statusClass = (status) => {
-  if (status === 'SENT') return 'bg-green-100 text-green-700';
-  if (status === 'FAILED') return 'bg-red-100 text-red-700';
-  if (status === 'PROCESSING') return 'bg-blue-100 text-blue-700';
-  return 'bg-amber-100 text-amber-700';
-};
-
 const loadData = async () => {
   loading.value = true;
   error.value = '';
 
   try {
-    const [profileData, walletData, payoutData] = await Promise.all([
-      payoutService.getProfile(),
-      payoutService.getWallet(),
-      payoutService.getPayouts()
-    ]);
+    const profileData = await payoutService.getProfile();
 
     profiles.value = Array.isArray(profileData) ? profileData : profileData ? [profileData] : [];
-    wallet.value = walletData;
-    payouts.value = payoutData;
 
     const selectedProfile = profileByOperator.value.get(form.operator);
     if (selectedProfile) {
@@ -82,7 +52,7 @@ const loadData = async () => {
       form.isDefault = selectedProfile.isDefault;
     }
   } catch (err) {
-    error.value = err.response?.data?.message || err.message || 'Impossible de charger votre argent vendeur.';
+    error.value = err.response?.data?.message || err.message || 'Impossible de charger vos numéros.';
   } finally {
     loading.value = false;
   }
@@ -120,8 +90,8 @@ onMounted(loadData);
     <div class="bg-white rounded-xl border border-gray-200 p-6">
       <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
         <div>
-          <h2 class="text-2xl font-bold text-gray-900">Mon argent</h2>
-          <p class="text-gray-600 mt-1">Choisissez où recevoir vos paiements clients.</p>
+          <h2 class="text-2xl font-bold text-gray-900">Mes numéros</h2>
+          <p class="text-gray-600 mt-1">Ces numéros seront montrés au client pour payer directement.</p>
         </div>
         <button
           @click="loadData"
@@ -145,28 +115,6 @@ onMounted(loadData);
     </div>
 
     <template v-else>
-      <div class="grid md:grid-cols-3 gap-4">
-        <div class="bg-white rounded-xl border border-gray-200 p-5">
-          <p class="text-sm text-gray-500">À recevoir</p>
-          <p class="text-2xl font-bold text-amber-600 mt-2">{{ formatAmount(wallet?.pendingAmount) }}</p>
-        </div>
-        <div class="bg-white rounded-xl border border-gray-200 p-5">
-          <p class="text-sm text-gray-500">Déjà versé</p>
-          <p class="text-2xl font-bold text-green-600 mt-2">{{ formatAmount(wallet?.paidOutAmount) }}</p>
-        </div>
-        <div class="bg-white rounded-xl border border-gray-200 p-5">
-          <p class="text-sm text-gray-500">Compte principal</p>
-          <div v-if="defaultProfile" class="mt-3 flex items-center gap-3">
-            <MobileMoneyIcon :operator="defaultProfile.operator" size="sm" />
-            <div class="min-w-0">
-              <p class="truncate font-bold text-gray-900">{{ operatorLabel(defaultProfile.operator) }}</p>
-              <p class="truncate text-sm text-gray-500">{{ defaultProfile.phone }}</p>
-            </div>
-          </div>
-          <p v-else class="mt-3 text-sm font-semibold text-amber-700">À configurer</p>
-        </div>
-      </div>
-
       <div class="grid lg:grid-cols-[420px_1fr] gap-6">
         <section class="bg-white rounded-xl border border-gray-200 p-6">
           <div class="flex items-center gap-3 mb-5">
@@ -209,7 +157,7 @@ onMounted(loadData);
           <form @submit.prevent="saveProfile" class="space-y-4">
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-2">Service</label>
-              <div class="grid grid-cols-3 gap-2">
+              <div class="grid grid-cols-2 gap-2">
                 <button
                   v-for="operator in operators"
                   :key="operator.value"
@@ -270,48 +218,39 @@ onMounted(loadData);
 
         <section class="bg-white rounded-xl border border-gray-200 p-6">
           <div class="flex items-center gap-3 mb-5">
-            <div class="h-10 w-10 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center">
-              <Wallet :size="22" />
+            <div class="h-10 w-10 rounded-lg bg-teal-100 text-teal-700 flex items-center justify-center">
+              <Smartphone :size="22" />
             </div>
             <div>
-              <h3 class="font-semibold text-gray-900">Reversements</h3>
-              <p class="text-sm text-gray-500">Suivi des paiements envoyés vers vos comptes.</p>
+              <h3 class="font-semibold text-gray-900">Ce que le client voit</h3>
+              <p class="text-sm text-gray-500">Le client paie sur ces numéros, puis le vendeur confirme.</p>
             </div>
           </div>
 
           <div v-if="!configured" class="rounded-lg border border-amber-200 bg-amber-50 p-4 text-amber-800 mb-4">
-            Ajoutez au moins un compte de réception.
-          </div>
-
-          <div v-if="payouts.length === 0" class="rounded-lg border border-dashed border-gray-300 p-8 text-center text-gray-500">
-            Aucun reversement pour le moment.
+            Ajoutez au moins un numéro Wave ou Orange Money.
           </div>
 
           <div v-else class="space-y-3">
             <div
-              v-for="payout in payouts"
-              :key="payout.id"
-              class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-lg border border-gray-200 p-4"
+              v-for="profile in profiles"
+              :key="profile.id"
+              class="rounded-lg border border-gray-200 p-4"
             >
-              <div>
-                <div class="flex items-center gap-2">
-                  <p class="font-semibold text-gray-900">{{ formatAmount(payout.netAmount) }}</p>
-                  <span :class="['inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-semibold', statusClass(payout.status)]">
-                    <Clock v-if="payout.status !== 'SENT' && payout.status !== 'FAILED'" :size="13" />
-                    <CheckCircle v-else-if="payout.status === 'SENT'" :size="13" />
-                    <AlertCircle v-else :size="13" />
-                  {{ statusLabel(payout.status) }}
-                  </span>
+              <div class="flex items-center gap-3">
+                <MobileMoneyIcon :operator="profile.operator" size="sm" />
+                <div class="min-w-0">
+                  <p class="font-bold text-gray-900">{{ operatorLabel(profile.operator) }}</p>
+                  <p class="text-xl font-black text-teal-700">{{ profile.phone }}</p>
+                  <p class="text-sm font-semibold text-gray-500">{{ profile.holderName }}</p>
                 </div>
-                <p class="text-sm text-gray-500 mt-1">
-                  <span class="inline-flex items-center gap-2">
-                    <MobileMoneyIcon :operator="payout.operator" size="sm" />
-                    <span>{{ operatorLabel(payout.operator) }} - {{ payout.phone }} - {{ safeFormatDate(payout.createdAt) }}</span>
-                  </span>
-                </p>
               </div>
-              <p v-if="payout.client?.name" class="text-sm text-gray-600">{{ payout.client.name }}</p>
             </div>
+          </div>
+
+          <div class="mt-5 rounded-lg bg-gray-50 p-4 text-sm font-semibold text-gray-600">
+            Quand le client paie, demandez-lui le reçu Wave/Orange Money puis cliquez sur
+            <span class="font-black text-gray-900">Marquer reçu</span> dans sa dette.
           </div>
         </section>
       </div>

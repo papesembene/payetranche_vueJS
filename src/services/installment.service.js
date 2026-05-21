@@ -31,10 +31,12 @@ class InstallmentService {
     return response.data.data.map(normalizeInstallment);
   }
 
-  async payInstallment(installmentId, amount) {
+  async payInstallment(installmentId, data = {}) {
     try {
       const response = await http.post(`/installments/${installmentId}/pay`, {
-        amount: amount ? Number(amount) : undefined
+        amount: data.amount ? Number(data.amount) : undefined,
+        method: data.method,
+        reference: data.reference
       });
       return response.data.data;
     } catch (error) {

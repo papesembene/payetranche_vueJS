@@ -28,8 +28,11 @@ const normalizePayment = (payment) => ({
   backendType: 'payment',
   clientId: payment.clientId,
   creditId: payment.creditId,
+  installmentId: payment.installmentId,
   amount: payment.amount,
   description: payment.reference || 'Paiement reçu',
+  method: payment.method || 'CASH',
+  reference: payment.reference || '',
   dueDate: null,
   paymentDate: payment.paidAt,
   status: payment.status === 'COMPLETED' ? 'completed' : 'pending',
@@ -102,9 +105,9 @@ class TransactionService {
           clientId: transactionData.clientId,
           creditId,
           amount: Number(transactionData.amount),
-          method: 'CASH',
+          method: transactionData.method || 'CASH',
           status: 'COMPLETED',
-          reference: transactionData.description
+          reference: transactionData.reference || transactionData.description
         });
         return normalizePayment(response.data.data);
       }
@@ -161,9 +164,9 @@ class TransactionService {
         clientId: credit.clientId,
         creditId: credit.id,
         amount,
-        method: 'CASH',
+        method: paymentData.method || 'CASH',
         status: 'COMPLETED',
-        reference: paymentData.description || 'Paiement'
+        reference: paymentData.reference || paymentData.description || 'Paiement'
       });
 
       return normalizePayment(response.data.data);

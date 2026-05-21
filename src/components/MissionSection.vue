@@ -10,7 +10,7 @@ const values = [
   {
     icon: ShieldCheck,
     title: 'Données séparées',
-    description: 'Chaque entreprise a son espace. Les clients, dettes, paiements et reversements sont isolés par vendeur.'
+    description: 'Chaque entreprise a son espace. Les clients, dettes et paiements sont isolés par vendeur.'
   },
   {
     icon: Headphones,
@@ -31,7 +31,7 @@ const values = [
           Remplacer le cahier de dettes par un suivi clair
         </h2>
         <p class="mt-6 text-lg leading-relaxed text-gray-600">
-          Beaucoup de vendeurs acceptent les paiements en plusieurs fois, mais suivent encore les montants dans un cahier ou dans WhatsApp. PayTranche centralise la dette, les tranches, les paiements reçus et l’argent à reverser.
+          Beaucoup de vendeurs acceptent les paiements en plusieurs fois, mais suivent encore les montants dans un cahier ou dans WhatsApp. PayTranche centralise la dette, les tranches, les paiements reçus et les preuves.
         </p>
       </div>
 

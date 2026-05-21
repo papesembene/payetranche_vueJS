@@ -19,6 +19,16 @@ const loading = ref(false);
 const showExportMenu = ref(false);
 const currentPage = ref(1);
 const itemsPerPage = ref(10);
+const paymentMethodLabel = (method) => {
+  const labels = {
+    WAVE: 'Wave',
+    ORANGE_MONEY: 'Orange Money',
+    CASH: 'Espèces',
+    BANK_TRANSFER: 'Virement',
+    OTHER: 'Autre'
+  };
+  return labels[method] || 'Paiement';
+};
 
 // Watch for refresh prop changes
 watch(() => props.refresh, () => {
@@ -71,7 +81,9 @@ const payments = computed(() => {
       avatar,
       avatarColor: 'bg-teal-500',
       amount: formatAmount(transaction.amount),
-      date: formatDate(transaction.createdAt),
+      date: formatDate(transaction.paymentDate || transaction.createdAt),
+      method: paymentMethodLabel(transaction.method),
+      reference: transaction.reference,
       status,
       statusColor,
       rawStatus: transaction.status
@@ -261,6 +273,10 @@ onMounted(() => {
               <p class="text-sm text-gray-600">Montant reçu</p>
               <p class="font-semibold text-gray-900">{{ payment.amount }}</p>
             </div>
+            <div class="mt-2 rounded-lg bg-gray-50 p-3 text-sm">
+              <p class="font-semibold text-gray-700">{{ payment.method }}</p>
+              <p v-if="payment.reference" class="mt-1 text-gray-500">{{ payment.reference }}</p>
+            </div>
           </div>
         </div>
       </div>
@@ -272,6 +288,7 @@ onMounted(() => {
             <tr>
               <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Client</th>
               <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Montant</th>
+              <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Reçu par</th>
               <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Date</th>
               <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Statut</th>
             </tr>
@@ -287,6 +304,10 @@ onMounted(() => {
                 </div>
               </td>
               <td class="px-6 py-4 text-gray-900 font-medium">{{ payment.amount }}</td>
+              <td class="px-6 py-4">
+                <p class="font-medium text-gray-900">{{ payment.method }}</p>
+                <p v-if="payment.reference" class="text-sm text-gray-500">{{ payment.reference }}</p>
+              </td>
               <td class="px-6 py-4 text-gray-600">{{ payment.date }}</td>
               <td class="px-6 py-4">
                 <span :class="['inline-flex px-3 py-1 rounded-full text-xs font-semibold', payment.statusColor]">

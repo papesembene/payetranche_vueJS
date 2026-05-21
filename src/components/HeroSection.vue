@@ -38,14 +38,14 @@ const scrollToFeatures = () => {
         </h1>
 
         <p class="text-lg lg:text-xl text-white/90 leading-relaxed max-w-2xl font-light">
-          PayTranche aide les vendeurs à enregistrer les dettes clients, organiser les paiements par tranche et envoyer un lien de paiement simple au client.
+          PayTranche aide les vendeurs à enregistrer les dettes clients, organiser les paiements par tranche et garder la preuve des paiements reçus.
         </p>
 
         <div class="grid gap-2 text-sm font-semibold text-white/90 sm:grid-cols-2">
           <span class="inline-flex items-center gap-2"><CheckCircle2 :size="18" class="text-teal-300" /> Tranches et soldes automatiques</span>
           <span class="inline-flex items-center gap-2"><CheckCircle2 :size="18" class="text-teal-300" /> Lien client sans compte</span>
           <span class="inline-flex items-center gap-2"><CheckCircle2 :size="18" class="text-teal-300" /> Paiement Wave / Orange Money</span>
-          <span class="inline-flex items-center gap-2"><CheckCircle2 :size="18" class="text-teal-300" /> Reversements vendeur suivis</span>
+          <span class="inline-flex items-center gap-2"><CheckCircle2 :size="18" class="text-teal-300" /> Preuves de paiement</span>
         </div>
 
         <div class="flex flex-col sm:flex-row gap-4 pt-4">
