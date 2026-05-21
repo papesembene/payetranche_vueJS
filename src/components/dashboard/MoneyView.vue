@@ -249,8 +249,8 @@ onMounted(loadData);
           </div>
 
           <div class="mt-5 rounded-lg bg-gray-50 p-4 text-sm font-semibold text-gray-600">
-            Quand le client paie, demandez-lui le reçu Wave/Orange Money puis cliquez sur
-            <span class="font-black text-gray-900">Paiement reçu</span> dans sa dette.
+            Quand l’argent arrive sur votre Wave ou Orange Money, ouvrez la dette puis cliquez sur
+            <span class="font-black text-gray-900">Paiement reçu</span>. La référence est optionnelle.
           </div>
         </section>
       </div>

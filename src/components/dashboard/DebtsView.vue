@@ -921,13 +921,16 @@ onMounted(() => {
           </div>
 
           <div>
-            <label class="block text-sm font-semibold text-gray-700 mb-2">Preuve ou référence</label>
+            <label class="block text-sm font-semibold text-gray-700 mb-2">Référence (optionnel)</label>
             <input
               v-model.trim="paymentForm.reference"
               type="text"
-              placeholder="Ex: reçu Wave, ID transaction, capture Orange Money"
+              placeholder="Ex: ID transaction Wave ou Orange Money"
               class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500"
             />
+            <p class="mt-1 text-xs font-semibold text-gray-500">
+              Laissez vide si vous avez déjà vérifié l’argent sur votre téléphone.
+            </p>
           </div>
 
           <div>
