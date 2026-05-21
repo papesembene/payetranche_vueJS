@@ -17,7 +17,7 @@ const steps = [
 
 <template>
   <main class="bg-white">
-    <section class="relative min-h-[88vh] overflow-hidden">
+    <section class="relative min-h-screen overflow-hidden">
       <img
         src="/market-background.jpg"
         alt="Marché au Sénégal"
@@ -25,7 +25,7 @@ const steps = [
       />
       <div class="absolute inset-0 bg-black/65"></div>
 
-      <div class="relative mx-auto flex min-h-[88vh] max-w-6xl flex-col justify-center px-5 py-24 text-white sm:px-8">
+      <div class="relative mx-auto flex min-h-screen max-w-6xl flex-col justify-center px-5 pb-10 pt-28 text-white sm:px-8 sm:pt-24">
         <div class="max-w-2xl">
           <p class="mb-4 inline-flex rounded-full bg-white/12 px-4 py-2 text-sm font-bold text-teal-100 ring-1 ring-white/20">
             Carnet de crédit simple pour vendeurs
