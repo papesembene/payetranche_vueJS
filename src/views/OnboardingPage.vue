@@ -24,6 +24,12 @@ const form = ref({
 
 const hasWave = computed(() => form.value.wavePhone.trim().length > 0);
 const hasOrangeMoney = computed(() => form.value.orangeMoneyPhone.trim().length > 0);
+const displayUserContact = computed(() => {
+  const email = currentUser.value?.email || '';
+  return email.endsWith('@auth.paytranche.local') || email.endsWith('@paytranche.local')
+    ? 'Compte social PayTranche'
+    : email;
+});
 
 const cleanPhone = (value = '') => value.replace(/\s+/g, '').replace(/^\+221/, '').replace(/^221/, '');
 
@@ -138,7 +144,7 @@ onMounted(loadStatus);
         </div>
         <div>
           <h1 class="text-xl font-bold text-slate-950">Compléter le profil</h1>
-          <p class="text-sm text-slate-500">{{ currentUser.email }}</p>
+          <p class="text-sm text-slate-500">{{ displayUserContact }}</p>
         </div>
       </div>
 

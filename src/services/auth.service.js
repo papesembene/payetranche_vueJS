@@ -1,7 +1,8 @@
-import { http } from './http.js';
+import { API_BASE_URL, http } from './http.js';
 import { auth } from '../firebase.js';
 import {
   getRedirectResult,
+  FacebookAuthProvider,
   GoogleAuthProvider,
   onAuthStateChanged,
   signInWithPopup,
@@ -16,6 +17,12 @@ const phoneToEmail = (phoneNumber) => `${cleanPhone(phoneNumber)}@paytranche.loc
 const pinToPassword = (pin) => `${pin}${pin}`;
 
 const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+
+const socialProviderLabels = {
+  google: 'Google',
+  facebook: 'Facebook',
+  tiktok: 'TikTok'
+};
 
 const backendPlanToFrontendPlan = (plan) => {
   const plans = {
@@ -54,7 +61,7 @@ const normalizeUser = (user, tenant = null) => {
 };
 
 const socialAuthErrorMessage = (error, providerName) => {
-  const providerLabel = 'Google';
+  const providerLabel = socialProviderLabels[providerName] || 'ce service';
   const currentHost = window.location.host || 'localhost';
 
   const messages = {
@@ -62,17 +69,18 @@ const socialAuthErrorMessage = (error, providerName) => {
     'auth/popup-closed-by-user': `Connexion ${providerLabel} annulée. Cliquez sur le bouton et terminez la connexion dans la fenêtre ouverte.`,
     'auth/cancelled-popup-request': `Une connexion ${providerLabel} est déjà en cours. Fermez l’autre fenêtre puis réessayez.`,
     'auth/operation-not-allowed': `${providerLabel} n’est pas encore activé dans Firebase Authentication.`,
-    'auth/unauthorized-domain': 'Le domaine localhost n’est pas autorisé dans Firebase Authentication.',
+    'auth/invalid-provider-id': `${providerLabel} doit être configuré dans Firebase Authentication.`,
+    'auth/unauthorized-domain': `Le domaine ${currentHost} n’est pas autorisé dans Firebase Authentication.`,
     'auth/account-exists-with-different-credential': 'Un compte existe déjà avec cet email. Connectez-vous avec la méthode utilisée au départ.',
     'auth/popup-timeout': `Connexion ${providerLabel} bloquée après le choix du compte. Fermez la fenêtre ${providerLabel}, rechargez la page, puis réessayez.`
   };
 
   if (error?.code === 'ERR_NETWORK') {
-    return 'Connexion Google réussie, mais le backend PayTranche ne répond pas. Vérifiez que le backend tourne sur localhost:8000.';
+    return `Connexion ${providerLabel} réussie, mais le backend PayTranche ne répond pas.`;
   }
 
   if (error?.code === 'ECONNABORTED') {
-    return 'Connexion Google réussie, mais le backend PayTranche met trop de temps à répondre.';
+    return `Connexion ${providerLabel} réussie, mais le backend PayTranche met trop de temps à répondre.`;
   }
 
   return messages[error?.code] || error.response?.data?.message || error.message || `Connexion ${providerLabel} impossible`;
@@ -80,8 +88,14 @@ const socialAuthErrorMessage = (error, providerName) => {
 
 class AuthService {
   getSocialProvider(providerName) {
+    if (providerName === 'facebook') {
+      const provider = new FacebookAuthProvider();
+      provider.addScope('email');
+      return provider;
+    }
+
     if (providerName !== 'google') {
-      throw new Error('Seule la connexion Google est disponible.');
+      throw new Error('Méthode de connexion non disponible.');
     }
 
     const provider = new GoogleAuthProvider();
@@ -109,6 +123,21 @@ class AuthService {
   clearSocialAuthMemory() {
     localStorage.removeItem('social_auth_provider');
     localStorage.removeItem('social_auth_company_name');
+  }
+
+  hasPendingSocialAuth() {
+    return Boolean(localStorage.getItem('social_auth_provider'));
+  }
+
+  getTikTokStartUrl(options = {}) {
+    const apiBaseUrl = API_BASE_URL.startsWith('http')
+      ? API_BASE_URL
+      : `${window.location.origin}${API_BASE_URL}`;
+    const url = new URL(`${apiBaseUrl.replace(/\/$/, '')}/auth/tiktok/start`);
+    if (options.companyName) {
+      url.searchParams.set('companyName', options.companyName);
+    }
+    return url.toString();
   }
 
   waitForFirebaseUser(timeoutMs = 2500) {
@@ -280,6 +309,12 @@ class AuthService {
   async loginWithSocial(providerName, options = {}) {
     try {
       this.rememberSocialAuth(providerName, options);
+
+      if (providerName === 'tiktok') {
+        window.location.assign(this.getTikTokStartUrl(options));
+        return { success: true, pendingRedirect: true };
+      }
+
       const provider = this.getSocialProvider(providerName);
 
       if (options.usePopup !== true) {
@@ -307,8 +342,9 @@ class AuthService {
       const companyName = localStorage.getItem('social_auth_company_name') || undefined;
       return await this.completeFirebaseUser(firebaseUser, companyName);
     } catch (error) {
+      const providerName = localStorage.getItem('social_auth_provider') || 'google';
       this.clearSocialAuthMemory();
-      throw new Error(error.response?.data?.message || error.message || 'Connexion sociale impossible');
+      throw new Error(socialAuthErrorMessage(error, providerName));
     }
   }
 

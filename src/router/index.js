@@ -9,6 +9,7 @@ import DashboardPage from '../views/DashboardPage.vue';
 import SettingsPage from '../views/SettingsPage.vue';
 import PaymentSuccessPage from '../views/PaymentSuccessPage.vue';
 import PaymentCancelPage from '../views/PaymentCancelPage.vue';
+import SocialCallbackPage from '../views/SocialCallbackPage.vue';
 import { canAccessPlatformAdmin, isExplicitPlatformAdmin } from '../utils/access.js';
 
 // Navigation guard for authentication and subscription checks
@@ -98,6 +99,11 @@ const routes = [
     path: '/register',
     name: 'Register',
     component: RegisterPage
+  },
+  {
+    path: '/auth/callback',
+    name: 'SocialCallback',
+    component: SocialCallbackPage
   },
   {
     path: '/onboarding',

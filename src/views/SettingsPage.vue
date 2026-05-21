@@ -28,6 +28,12 @@ const currentPlan = computed(() => subscriptionPlans[currentPlanId.value] || sub
 const clientsUsage = computed(() => subscription.value?.usage?.clients ?? user.value?.usage?.clients ?? 0);
 const maxClients = computed(() => subscription.value?.limits?.maxClients ?? currentPlan.value?.limits?.maxClients);
 const isPro = computed(() => currentPlanId.value === 'pro');
+const displayUserEmail = computed(() => {
+  const email = user.value?.email || '';
+  return email.endsWith('@auth.paytranche.local') || email.endsWith('@paytranche.local')
+    ? 'Compte social PayTranche'
+    : email;
+});
 
 const formatAmount = (amount) =>
   new Intl.NumberFormat('fr-FR').format(Number(amount || 0)) + ' FCFA';
@@ -150,7 +156,7 @@ onMounted(loadSubscription);
           </div>
           <div>
             <h2 class="font-bold text-slate-950">Profil vendeur</h2>
-            <p class="text-sm text-slate-500">{{ user?.email }}</p>
+            <p class="text-sm text-slate-500">{{ displayUserEmail }}</p>
           </div>
         </div>
 

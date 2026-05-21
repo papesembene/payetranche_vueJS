@@ -18,7 +18,7 @@
         <div class="p-4 sm:p-6 pb-4">
           <!-- Welcome Text -->
           <h1 class="text-xl sm:text-2xl font-bold text-gray-900 mb-2">Créer un compte</h1>
-          <p class="text-sm sm:text-base text-gray-600 mb-4 sm:mb-6">Commencez votre essai gratuit de 14 jours</p>
+          <p class="text-sm sm:text-base text-gray-600 mb-4 sm:mb-6">Créez votre carnet de crédit gratuitement</p>
 
           <!-- Step Indicator -->
           <div class="flex items-center justify-center gap-1 sm:gap-2 mb-2">
@@ -44,8 +44,13 @@
           {{ errors.general }}
         </div>
 
-        <div class="px-4 sm:px-6 pb-4 grid gap-3">
-          <div ref="googleButtonEl" class="min-h-[44px] w-full flex justify-center"></div>
+        <div class="px-4 sm:px-6 pb-4">
+          <SocialAuthButtons
+            mode="register"
+            :loading-provider="socialLoadingProvider"
+            :disabled="loading"
+            @select="handleSocialAuth"
+          />
         </div>
 
         <div class="px-4 sm:px-6 flex items-center gap-3">
@@ -177,10 +182,10 @@
             <div class="p-3 sm:p-4 bg-teal-50 border border-teal-200 rounded-lg sm:rounded-xl">
               <div class="flex items-center gap-1.5 sm:gap-2 text-teal-800 mb-1">
                 <Gift :size="16" :size-sm="20" />
-                <span class="font-medium text-sm sm:text-base">Essai gratuit 14 jours</span>
+                <span class="font-medium text-sm sm:text-base">Plan gratuit inclus</span>
               </div>
               <p class="text-xs sm:text-sm text-teal-700">
-                Accès complet sans carte bancaire
+                Jusqu’à 5 clients, sans carte bancaire
               </p>
             </div>
           </div>
@@ -255,10 +260,11 @@ import { DollarSign, User, Lock, CheckCircle, Gift } from 'lucide-vue-next';
 import { useUser } from '../composables/useUser.js';
 import { authService } from '../services/auth.service.js';
 import { getPostAuthPath, getSafeRedirectPath } from '../utils/access.js';
+import SocialAuthButtons from '../components/SocialAuthButtons.vue';
 
 const router = useRouter();
 const route = useRoute();
-const { register, googleCredentialLogin } = useUser();
+const { register, socialLogin, completeSocialLogin } = useUser();
 
 const form = ref({
   businessName: '',
@@ -274,7 +280,7 @@ const loading = ref(false);
 const errors = ref({});
 const currentStep = ref(1);
 const totalSteps = 3;
-const googleButtonEl = ref(null);
+const socialLoadingProvider = ref('');
 
 const getRedirectPath = () => {
   return getSafeRedirectPath(route.query.redirect);
@@ -391,38 +397,40 @@ const handleStepAction = async () => {
   }
 };
 
-const mountGoogleButton = async () => {
-  try {
-    await authService.renderGoogleButton(googleButtonEl.value, {
-      text: 'signup_with',
-      onCredential: async (credential) => {
-        errors.value = {};
-        loading.value = true;
-        try {
-          const result = await googleCredentialLogin(credential, {
-            companyName: form.value.businessName || undefined
-          });
+const handleSocialAuth = async (provider) => {
+  errors.value = {};
+  socialLoadingProvider.value = provider;
 
-          if (result.success) {
-            goAfterAuth(result.user);
-          } else {
-            errors.value.general = result.error || 'Inscription Google impossible';
-          }
-        } finally {
-          loading.value = false;
-        }
-      },
-      onError: (message) => {
-        errors.value.general = message;
-      }
-    });
-  } catch (error) {
-    errors.value.general = error.message || 'Google Sign-In indisponible';
+  const result = await socialLogin(provider, {
+    companyName: form.value.businessName || undefined
+  });
+
+  if (result.success && !result.pendingRedirect) {
+    goAfterAuth(result.user);
+    return;
+  }
+
+  if (!result.success && result.error) {
+    errors.value.general = result.error;
+    socialLoadingProvider.value = '';
   }
 };
 
 onMounted(async () => {
-  await mountGoogleButton();
+  if (!authService.hasPendingSocialAuth()) return;
+
+  socialLoadingProvider.value = localStorage.getItem('social_auth_provider') || 'google';
+  const result = await completeSocialLogin();
+
+  if (result.success) {
+    goAfterAuth(result.user);
+    return;
+  }
+
+  if (result.error) {
+    errors.value.general = result.error;
+  }
+  socialLoadingProvider.value = '';
 });
 
 const prevStep = () => {

@@ -5,15 +5,16 @@ import { Mail, Lock, DollarSign } from 'lucide-vue-next';
 import { useUser } from '../composables/useUser.js';
 import { authService } from '../services/auth.service.js';
 import { getPostAuthPath, getSafeRedirectPath } from '../utils/access.js';
+import SocialAuthButtons from '../components/SocialAuthButtons.vue';
 
 const router = useRouter();
 const route = useRoute();
-const { login, googleCredentialLogin, loading } = useUser();
+const { login, socialLogin, completeSocialLogin, loading } = useUser();
 
 const email = ref('');
 const password = ref('');
 const errors = ref({});
-const googleButtonEl = ref(null);
+const socialLoadingProvider = ref('');
 
 const getRedirectPath = () => {
   return getSafeRedirectPath(route.query.redirect);
@@ -77,30 +78,37 @@ const handleLogin = async () => {
   }
 };
 
-const mountGoogleButton = async () => {
-  try {
-    await authService.renderGoogleButton(googleButtonEl.value, {
-      text: 'continue_with',
-      onCredential: async (credential) => {
-        errors.value = {};
-        const result = await googleCredentialLogin(credential);
-        if (result.success) {
-          goAfterAuth(result.user);
-        } else {
-          errors.value.general = result.error || 'Connexion Google impossible';
-        }
-      },
-      onError: (message) => {
-        errors.value.general = message;
-      }
-    });
-  } catch (error) {
-    errors.value.general = error.message || 'Google Sign-In indisponible';
+const handleSocialAuth = async (provider) => {
+  errors.value = {};
+  socialLoadingProvider.value = provider;
+
+  const result = await socialLogin(provider);
+  if (result.success && !result.pendingRedirect) {
+    goAfterAuth(result.user);
+    return;
+  }
+
+  if (!result.success && result.error) {
+    errors.value.general = result.error;
+    socialLoadingProvider.value = '';
   }
 };
 
 onMounted(async () => {
-  await mountGoogleButton();
+  if (!authService.hasPendingSocialAuth()) return;
+
+  socialLoadingProvider.value = localStorage.getItem('social_auth_provider') || 'google';
+  const result = await completeSocialLogin();
+
+  if (result.success) {
+    goAfterAuth(result.user);
+    return;
+  }
+
+  if (result.error) {
+    errors.value.general = result.error;
+  }
+  socialLoadingProvider.value = '';
 });
 </script>
 
@@ -129,8 +137,13 @@ onMounted(async () => {
           {{ errors.general }}
         </div>
 
-        <div class="grid gap-3 mb-6">
-          <div ref="googleButtonEl" class="min-h-[44px] w-full flex justify-center"></div>
+        <div class="mb-6">
+          <SocialAuthButtons
+            mode="login"
+            :loading-provider="socialLoadingProvider"
+            :disabled="loading"
+            @select="handleSocialAuth"
+          />
         </div>
 
         <div class="flex items-center gap-3 mb-6">
