@@ -6,6 +6,7 @@ import { installmentService } from '../../services/installment.service.js';
 import { transactionService } from '../../services/transaction.service.js';
 import MobileMoneyIcon from './MobileMoneyIcon.vue';
 import { getUserFriendlyError } from '../../utils/userFriendlyError.js';
+import { useUser } from '../../composables/useUser.js';
 
 const props = defineProps({
   refresh: {
@@ -15,6 +16,7 @@ const props = defineProps({
 });
 
 const emit = defineEmits(['updated']);
+const { currentPlan } = useUser();
 
 const loading = ref(false);
 const actionLoadingId = ref(null);
@@ -67,6 +69,12 @@ const paymentMethods = [
   { value: 'ORANGE_MONEY', label: 'Orange Money', iconOperator: 'ORANGE_MONEY' },
   { value: 'CASH', label: 'Espèces' }
 ];
+
+const maxClients = computed(() => currentPlan.value?.limits?.maxClients ?? -1);
+const canCreateNewClient = computed(() => maxClients.value === -1 || clients.value.length < maxClients.value);
+const clientLimitMessage = computed(() =>
+  `Limite du plan gratuit atteinte (${clients.value.length}/${maxClients.value}). Passez au plan Pro pour ajouter un nouveau client.`
+);
 
 watch(() => props.refresh, () => {
   loadData();
@@ -278,7 +286,7 @@ const openDebtModal = () => {
   const nextWeek = new Date();
   nextWeek.setDate(nextWeek.getDate() + 7);
   debtForm.value = {
-    clientMode: 'new',
+    clientMode: canCreateNewClient.value ? 'new' : 'existing',
     clientId: '',
     clientName: '',
     clientPhone: '',
@@ -292,6 +300,17 @@ const openDebtModal = () => {
     installmentFrequency: 'MONTHLY'
   };
   showDebtModal.value = true;
+};
+
+const selectClientMode = (mode) => {
+  if (mode === 'new' && !canCreateNewClient.value) {
+    errors.value.general = clientLimitMessage.value;
+    debtForm.value.clientMode = 'existing';
+    return;
+  }
+
+  errors.value.general = '';
+  debtForm.value.clientMode = mode;
 };
 
 const closeDebtModal = () => {
@@ -309,6 +328,9 @@ const createDebt = async () => {
   }
   if (debtForm.value.clientMode === 'new' && !debtForm.value.clientName.trim()) {
     errors.value.clientName = 'Nom du client requis';
+  }
+  if (debtForm.value.clientMode === 'new' && !canCreateNewClient.value) {
+    errors.value.general = clientLimitMessage.value;
   }
   if (!amount || amount <= 0) errors.value.amount = 'Montant de la vente requis';
   if (paidAmount > amount) errors.value.paidAmount = 'L’acompte ne peut pas dépasser la dette';
@@ -722,9 +744,11 @@ onMounted(() => {
             <div class="grid grid-cols-2 gap-2 mb-4">
               <button
                 type="button"
-                @click="debtForm.clientMode = 'new'"
+                :disabled="!canCreateNewClient"
+                :title="canCreateNewClient ? 'Créer un nouveau client' : clientLimitMessage"
+                @click="selectClientMode('new')"
                 :class="[
-                  'rounded-lg border px-3 py-3 text-sm font-semibold',
+                  'rounded-lg border px-3 py-3 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50',
                   debtForm.clientMode === 'new'
                     ? 'border-teal-400 bg-teal-50 text-teal-800'
                     : 'border-gray-200 text-gray-700'
@@ -734,7 +758,7 @@ onMounted(() => {
               </button>
               <button
                 type="button"
-                @click="debtForm.clientMode = 'existing'"
+                @click="selectClientMode('existing')"
                 :class="[
                   'rounded-lg border px-3 py-3 text-sm font-semibold',
                   debtForm.clientMode === 'existing'
@@ -745,6 +769,9 @@ onMounted(() => {
                 Existant
               </button>
             </div>
+            <p v-if="!canCreateNewClient" class="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800">
+              {{ clientLimitMessage }}
+            </p>
 
             <div v-if="debtForm.clientMode === 'new'" class="space-y-3">
               <div>
