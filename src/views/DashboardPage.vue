@@ -27,7 +27,7 @@ const navItems = [
     id: 'debts',
     label: 'Clients qui doivent',
     mobileLabel: 'Dettes',
-    helper: 'Voir les dettes, créer les tranches, envoyer un lien',
+    helper: 'Voir les dettes, créer les tranches, partager la fiche',
     icon: CreditCard
   },
   {

@@ -17,8 +17,8 @@ const mainFeatures = [
   },
   {
     icon: Link2,
-    title: 'Lien de suivi client',
-    description: 'Le client reçoit un lien permanent pour voir son solde, ses tranches et les numéros du vendeur.'
+    title: 'Fiche de suivi client',
+    description: 'Le client reçoit une fiche simple pour voir son solde, ses tranches et les numéros du vendeur.'
   },
   {
     icon: Smartphone,

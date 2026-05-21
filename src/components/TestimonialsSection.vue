@@ -10,7 +10,7 @@ const useCases = [
   {
     icon: Smartphone,
     title: 'Vente d’électronique',
-    text: 'Créer une dette pour un téléphone, envoyer un lien de suivi et encaisser la prochaine tranche.'
+    text: 'Créer une dette pour un téléphone, partager une fiche de suivi et encaisser la prochaine tranche.'
   },
   {
     icon: Sofa,

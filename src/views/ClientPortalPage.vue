@@ -1,13 +1,12 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue';
 import { useRoute } from 'vue-router';
-import { CheckCircle2, Clock, CreditCard, Loader2, Smartphone } from 'lucide-vue-next';
+import { CheckCircle2, Clock, CreditCard, Smartphone } from 'lucide-vue-next';
 import { clientPortalService } from '../services/clientPortal.service.js';
 
 const route = useRoute();
 const portal = ref(null);
 const loading = ref(false);
-const paying = ref(false);
 const error = ref('');
 
 const token = computed(() => route.params.token);
@@ -55,27 +54,9 @@ const loadPortal = async () => {
   try {
     portal.value = await clientPortalService.getPortal(token.value);
   } catch (loadError) {
-    error.value = loadError.response?.data?.message || loadError.message || 'Lien de suivi introuvable';
+    error.value = loadError.response?.data?.message || loadError.message || 'Fiche client introuvable';
   } finally {
     loading.value = false;
-  }
-};
-
-const payNext = async () => {
-  paying.value = true;
-  error.value = '';
-
-  try {
-    const request = await clientPortalService.payNext(token.value);
-    if (request.redirectUrl) {
-      window.location.href = request.redirectUrl;
-      return;
-    }
-    throw new Error('Lien de paiement indisponible');
-  } catch (payError) {
-    error.value = payError.response?.data?.message || payError.message || 'Paiement impossible';
-  } finally {
-    paying.value = false;
   }
 };
 
@@ -91,7 +72,7 @@ onMounted(loadPortal);
         </div>
         <div>
           <p class="text-sm font-black uppercase text-teal-700">PayTranche</p>
-          <h1 class="text-xl font-black text-gray-950">Suivi de paiement</h1>
+          <h1 class="text-xl font-black text-gray-950">Fiche client</h1>
         </div>
       </div>
 
@@ -146,23 +127,11 @@ onMounted(loadPortal);
             </div>
           </div>
 
-          <button
-            v-if="portal.nextPayment?.canPayOnline"
-            type="button"
-            :disabled="paying"
-            @click="payNext"
-            class="mt-5 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-teal-600 px-4 text-base font-black text-white transition-colors hover:bg-teal-700 disabled:bg-gray-300"
-          >
-            <Loader2 v-if="paying" :size="19" class="animate-spin" />
-            <Smartphone v-else :size="19" />
-            Payer {{ formatAmount(portal.nextPayment.amount) }}
-          </button>
-
-          <div v-else-if="portal.nextPayment" class="mt-5 rounded-lg border border-teal-200 bg-teal-50 p-4">
+          <div v-if="portal.nextPayment" class="mt-5 rounded-lg border border-teal-200 bg-teal-50 p-4">
             <div class="flex items-start gap-3">
               <Smartphone :size="22" class="mt-1 shrink-0 text-teal-700" />
               <div class="min-w-0 flex-1">
-                <h3 class="font-black text-teal-950">Payez directement le vendeur</h3>
+                <h3 class="font-black text-teal-950">Envoyer l’argent au vendeur</h3>
                 <p class="mt-1 text-sm font-semibold text-teal-800">
                   Montant demandé : {{ formatAmount(portal.nextPayment.amount) }}
                 </p>
@@ -185,7 +154,7 @@ onMounted(loadPortal);
             </p>
 
             <p class="mt-3 text-sm font-bold text-teal-900">
-              Après paiement, envoyez le reçu au vendeur. Il validera le paiement dans PayTranche.
+              Après l’envoi, montrez le reçu au vendeur. Il cochera le paiement dans son appli.
             </p>
           </div>
           <div v-else class="mt-5 rounded-lg bg-emerald-50 p-4 text-center font-black text-emerald-700">

@@ -98,14 +98,7 @@ const normalizeWhatsAppPhone = (phone = '') => {
 
 const getPaymentLinkMessage = () => {
   const clientName = generatedPaymentLink.value.clientName || 'client';
-  const amount = formatAmount(generatedPaymentLink.value.amount);
-  const label = generatedPaymentLink.value.label || 'paiement';
-
-  if (generatedPaymentLink.value.kind === 'portal') {
-    return `Bonjour ${clientName}, voici votre lien PayTranche. Vous pouvez voir votre solde, vos tranches et les numéros Wave/Orange Money du vendeur ici: ${generatedPaymentLink.value.url}`;
-  }
-
-  return `Bonjour ${clientName}, voici votre lien de ${label} PayTranche de ${amount}: ${generatedPaymentLink.value.url}`;
+  return `Bonjour ${clientName}, voici votre fiche de suivi. Vous pouvez voir votre solde, vos tranches et les numéros Wave/Orange Money du vendeur ici: ${generatedPaymentLink.value.url}`;
 };
 
 const getWhatsAppUrl = () => {
@@ -156,7 +149,7 @@ const copyPaymentLink = async () => {
       linkCopied.value = false;
     }, 1800);
   } catch (error) {
-    alert('Impossible de copier le lien');
+    alert('Impossible de copier la fiche');
   }
 };
 
@@ -182,7 +175,7 @@ const sendClientPortalLink = async (debt) => {
       kind: 'portal'
     });
   } catch (error) {
-    alert(error.message || 'Impossible de créer le lien de suivi');
+    alert(error.message || 'Impossible de créer la fiche client');
   } finally {
     actionLoadingId.value = null;
   }
@@ -708,7 +701,7 @@ onMounted(() => {
                 class="inline-flex items-center justify-center gap-2 rounded-lg bg-teal-500 px-4 py-3 text-sm font-semibold text-white hover:bg-teal-600 disabled:opacity-60"
               >
                 <Link2 :size="17" />
-                Envoyer au client
+                Fiche client
               </button>
               <button
                 v-if="debt.installments.length === 0"
@@ -1109,7 +1102,7 @@ onMounted(() => {
     <div v-if="showPaymentLinkModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-end sm:items-center justify-center z-50 sm:p-4">
       <div class="bg-white rounded-t-2xl sm:rounded-2xl shadow-xl max-w-md w-full max-h-[92vh] overflow-y-auto">
         <div class="sticky top-0 bg-white flex items-center justify-between p-4 sm:p-6 border-b border-gray-200">
-          <h2 class="text-xl font-bold text-gray-900">Lien client</h2>
+          <h2 class="text-xl font-bold text-gray-900">Fiche client</h2>
           <button @click="closePaymentLinkModal" class="p-2 hover:bg-gray-100 rounded-lg">
             <X :size="20" class="text-gray-500" />
           </button>
@@ -1124,7 +1117,7 @@ onMounted(() => {
           </div>
 
           <div>
-            <label class="block text-sm font-semibold text-gray-700 mb-2">Lien à envoyer au client</label>
+            <label class="block text-sm font-semibold text-gray-700 mb-2">Adresse de la fiche</label>
             <input
               :value="generatedPaymentLink.url"
               readonly
@@ -1157,7 +1150,7 @@ onMounted(() => {
               class="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-teal-600 px-4 py-3 font-semibold text-white hover:bg-teal-700"
             >
               <ExternalLink :size="18" />
-              Ouvrir
+              Voir la fiche
             </button>
 
           </div>

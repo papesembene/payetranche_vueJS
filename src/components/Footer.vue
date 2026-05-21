@@ -23,7 +23,7 @@ const openWhatsApp = () => {
             <span class="text-2xl font-black">PayTranche</span>
           </div>
           <p class="max-w-md text-white/75">
-            Gestion des ventes à crédit, paiements par tranche, liens client et preuves de paiement au Sénégal.
+            Gestion des ventes à crédit, paiements par tranche, fiches client et preuves de paiement au Sénégal.
           </p>
         </div>
 
