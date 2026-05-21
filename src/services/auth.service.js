@@ -60,8 +60,11 @@ const socialAuthErrorMessage = (error, providerName) => {
     'auth/cancelled-popup-request': `Une connexion ${providerLabel} est déjà en cours. Fermez l'autre fenêtre puis réessayez.`,
     'auth/operation-not-allowed': `${providerLabel} n'est pas encore activé dans Firebase Authentication.`,
     'auth/invalid-provider-id': `${providerLabel} doit être configuré dans Firebase Authentication.`,
+    'auth/invalid-app-id': `L'application Facebook configurée dans Firebase n'est pas valide.`,
+    'auth/invalid-oauth-client-id': `L'identifiant OAuth de ${providerLabel} n'est pas valide.`,
     'auth/unauthorized-domain': `Le domaine ${currentHost} n'est pas autorisé dans Firebase Authentication.`,
     'auth/account-exists-with-different-credential': 'Un compte existe déjà avec cet email. Connectez-vous avec la méthode utilisée au départ.',
+    'auth/invalid-credential': `La configuration ${providerLabel} est invalide. Vérifiez les clés dans Firebase.`,
     'auth/popup-timeout': `Connexion ${providerLabel} bloquée après le choix du compte. Fermez la fenêtre ${providerLabel}, rechargez la page, puis réessayez.`
   };
 
@@ -81,6 +84,9 @@ class AuthService {
     if (providerName === 'facebook') {
       const provider = new FacebookAuthProvider();
       provider.addScope('email');
+      provider.setCustomParameters({
+        display: 'popup'
+      });
       return provider;
     }
 
@@ -207,7 +213,7 @@ class AuthService {
   async completeSocialRedirect() {
     try {
       const result = await getRedirectResult(auth);
-      const firebaseUser = result?.user || await this.waitForFirebaseUser();
+      const firebaseUser = result?.user || await this.waitForFirebaseUser(10000);
 
       if (!firebaseUser) {
         return { success: false, pendingRedirect: false };
