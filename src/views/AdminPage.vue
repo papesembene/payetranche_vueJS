@@ -121,6 +121,7 @@ const configItems = computed(() => {
 });
 
 const yesNo = (value) => (value ? 'Oui' : 'Non');
+const canAutoPayout = computed(() => Boolean(paymentConfig.value?.readiness?.canAutoPayout));
 
 const stats = computed(() => [
   { label: 'Entreprises', value: overview.value?.tenants || 0, icon: Building2 },
@@ -581,12 +582,13 @@ onMounted(loadAdmin);
                 </button>
                 <button
                   class="inline-flex items-center justify-center gap-2 rounded-lg bg-teal-600 px-3 py-2 text-sm font-bold text-white disabled:opacity-50"
-                  :disabled="payout.status === 'SENT' || payout.status === 'PROCESSING' || actionLoadingId === `send-${payout.id}`"
+                  :disabled="!canAutoPayout || payout.status === 'SENT' || payout.status === 'PROCESSING' || actionLoadingId === `send-${payout.id}`"
+                  :title="canAutoPayout ? 'Envoyer le reversement automatiquement' : 'Reversement automatique désactivé'"
                   @click="sendPayout(payout)"
                 >
                   <Loader2 v-if="actionLoadingId === `send-${payout.id}`" :size="15" class="animate-spin" />
                   <Send v-else :size="15" />
-                  Relancer
+                  Auto
                 </button>
                 <button
                   class="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-bold text-slate-700 disabled:opacity-50"
