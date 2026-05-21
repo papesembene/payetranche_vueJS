@@ -200,7 +200,7 @@ class AuthService {
 
       const provider = this.getSocialProvider(providerName);
 
-      if (options.usePopup !== true) {
+      if (options.usePopup === false) {
         await signInWithRedirect(auth, provider);
         return { success: true, pendingRedirect: true };
       }

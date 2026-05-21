@@ -40,7 +40,7 @@ const handleSocialAuth = async (provider) => {
   errors.value = {};
   socialLoadingProvider.value = provider;
 
-  const result = await socialLogin(provider);
+  const result = await socialLogin(provider, { usePopup: true });
   if (result.success && !result.pendingRedirect) {
     goAfterAuth(result.user);
     return;
