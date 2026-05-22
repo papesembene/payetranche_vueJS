@@ -25,6 +25,9 @@ const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 
 const facebookProvider = { id: "facebook", label: "Facebook" };
 const googleButtonText = computed(() => (props.mode === "register" ? "signup_with" : "continue_with"));
+const facebookButtonLabel = computed(() =>
+  `${props.mode === "register" ? "S’inscrire avec" : "Continuer avec"} Facebook`
+);
 
 const loadGoogleScript = () => new Promise((resolve, reject) => {
   if (!googleClientId) {
@@ -117,18 +120,13 @@ watch(() => props.mode, () => {
 
     <button
       type="button"
-      :disabled="disabled || Boolean(loadingProvider)"
-      class="flex min-h-[48px] w-full items-center justify-center gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-bold text-gray-900 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
-      @click="emit('select', facebookProvider.id)"
+      disabled
+      class="flex min-h-[48px] w-full cursor-not-allowed items-center justify-center gap-3 rounded-xl border border-gray-200 bg-gray-100 px-4 py-3 text-sm font-bold text-gray-400 opacity-70"
+      title="Facebook sera disponible plus tard"
     >
       <SocialProviderIcon :provider="facebookProvider.id" />
-      <span>
-        <template v-if="loadingProvider === facebookProvider.id">Connexion...</template>
-        <template v-else
-          >{{ mode === "register" ? "S’inscrire avec" : "Continuer avec" }}
-          {{ facebookProvider.label }}</template
-        >
-      </span>
+      <span>{{ facebookButtonLabel }}</span>
+      <span class="rounded-full bg-gray-200 px-2 py-0.5 text-[11px] font-black text-gray-500">Bientôt</span>
     </button>
   </div>
 </template>
