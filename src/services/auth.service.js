@@ -268,9 +268,18 @@ class AuthService {
       const user = normalizeUser(serverUser);
       localStorage.setItem('auth_user', JSON.stringify(user));
       return { valid: true, user };
-    } catch {
-      localStorage.removeItem('auth_token');
-      return { valid: false };
+    } catch (error) {
+      if (error?.response?.status === 401) {
+        localStorage.removeItem('auth_token');
+        return { valid: false };
+      }
+
+      try {
+        const cachedUser = JSON.parse(userData);
+        return { valid: true, user: cachedUser, offline: true };
+      } catch {
+        return { valid: false };
+      }
     }
   }
 }

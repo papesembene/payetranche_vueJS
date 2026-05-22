@@ -62,8 +62,8 @@ class SessionService {
       return false;
     }
 
-    if (!userData.phone || typeof userData.phone !== 'string') {
-      if (import.meta.env.DEV) console.warn('⚠️ userData invalide: pas de phone');
+    if (userData.phone && typeof userData.phone !== 'string') {
+      if (import.meta.env.DEV) console.warn('⚠️ userData invalide: phone incorrect');
       return false;
     }
 

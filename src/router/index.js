@@ -11,6 +11,7 @@ import PaymentSuccessPage from '../views/PaymentSuccessPage.vue';
 import PaymentCancelPage from '../views/PaymentCancelPage.vue';
 import SocialCallbackPage from '../views/SocialCallbackPage.vue';
 import { canAccessPlatformAdmin, isExplicitPlatformAdmin } from '../utils/access.js';
+import { SessionService } from '../services/session.service.js';
 
 // Navigation guard for authentication and subscription checks
 const readStoredUser = () => {
@@ -27,6 +28,13 @@ const readStoredUser = () => {
       localStorage.removeItem('auth_user');
       localStorage.removeItem('user_data');
     }
+  }
+
+  const session = SessionService.getSession();
+  if (session?.user?.id) {
+    localStorage.setItem('auth_user', JSON.stringify(session.user));
+    localStorage.setItem('user_data', JSON.stringify(session.user));
+    return session.user;
   }
 
   return null;
