@@ -105,6 +105,24 @@ const formatDate = (dateString) => {
   });
 };
 
+const computeLastInstallmentDate = (firstDate, frequency, count) => {
+  if (!firstDate || !count) return null;
+
+  const date = new Date(firstDate);
+  if (Number.isNaN(date.getTime())) return null;
+
+  const intervalCount = Math.max(Number(count) - 1, 0);
+  if (frequency === 'DAILY') {
+    date.setDate(date.getDate() + intervalCount);
+  } else if (frequency === 'WEEKLY') {
+    date.setDate(date.getDate() + intervalCount * 7);
+  } else {
+    date.setMonth(date.getMonth() + intervalCount);
+  }
+
+  return date.toISOString().split('T')[0];
+};
+
 const isDebtOverdue = (debt) => {
   if (!debt.dueDate || debt.status === 'completed') return false;
   const dueDate = new Date(debt.dueDate);
@@ -445,11 +463,19 @@ const createDebt = async () => {
       clientId = createdClient.id;
     }
 
+    const dueDate = createsInstallments
+      ? computeLastInstallmentDate(
+          debtForm.value.firstInstallmentDate,
+          debtForm.value.installmentFrequency,
+          debtForm.value.installmentCount
+        )
+      : debtForm.value.dueDate || null;
+
     const createdDebt = await transactionService.createTransaction({
       clientId,
       amount,
       description: debtForm.value.description || 'Dette client',
-      dueDate: debtForm.value.dueDate || null,
+      dueDate,
       status: 'pending',
       type: 'credit'
     });
@@ -698,7 +724,7 @@ onMounted(() => {
 
             <div class="mt-3 grid gap-1 text-sm text-gray-600">
               <p>{{ debt.description || 'Vente à crédit' }}</p>
-              <p class="flex items-center gap-2">
+              <p v-if="debt.installments.length === 0" class="flex items-center gap-2">
                 <CalendarDays :size="15" />
                 Échéance: {{ formatDate(debt.dueDate) }}
               </p>
@@ -938,8 +964,8 @@ onMounted(() => {
               </div>
             </div>
 
-            <div class="mt-4">
-              <label class="block text-sm font-semibold text-gray-700 mb-2">Date limite</label>
+            <div v-if="debtForm.paymentMode === 'later'" class="mt-4">
+              <label class="block text-sm font-semibold text-gray-700 mb-2">Date de paiement prévue</label>
               <input v-model="debtForm.dueDate" type="date" :min="today" class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500" />
             </div>
 
