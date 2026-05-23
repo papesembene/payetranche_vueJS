@@ -269,7 +269,10 @@ class AuthService {
       localStorage.setItem('auth_user', JSON.stringify(user));
       return { valid: true, user };
     } catch (error) {
-      if (error?.response?.status === 401) {
+      if (
+        error?.response?.status === 401 ||
+        error?.response?.data?.code === 'ACCOUNT_DISABLED'
+      ) {
         localStorage.removeItem('auth_token');
         return { valid: false };
       }

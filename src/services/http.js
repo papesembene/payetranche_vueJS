@@ -49,12 +49,22 @@ http.interceptors.response.use(
     const requestUrl = error.config?.url || '';
     const isAuthRequest = authEndpoints.some((endpoint) => requestUrl.includes(endpoint));
 
-    if (error.response?.status === 401 && !isAuthRequest) {
+    if (
+      (error.response?.status === 401 || error.response?.data?.code === 'ACCOUNT_DISABLED') &&
+      !isAuthRequest
+    ) {
       // Token expiré ou invalide
       localStorage.removeItem('auth_token');
+      if (error.response?.data?.code === 'ACCOUNT_DISABLED') {
+        localStorage.removeItem('auth_user');
+        localStorage.removeItem('user_data');
+      }
       // Redirection vers login si nécessaire
       if (window.location.pathname !== '/login') {
-        window.location.href = '/login';
+        const reason = error.response?.data?.code === 'ACCOUNT_DISABLED'
+          ? '?reason=account-disabled'
+          : '';
+        window.location.href = `/login${reason}`;
       }
     }
     return Promise.reject(error);

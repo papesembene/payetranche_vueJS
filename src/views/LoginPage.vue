@@ -14,6 +14,10 @@ const { socialLogin, completeSocialLogin, loading } = useUser();
 const errors = ref({});
 const socialLoadingProvider = ref('');
 
+if (route.query.reason === 'account-disabled') {
+  errors.value.general = 'Votre compte est bloqué. Contactez PayTranche.';
+}
+
 const getRedirectPath = () => {
   return getSafeRedirectPath(route.query.redirect);
 };

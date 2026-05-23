@@ -20,6 +20,7 @@ const technicalPatterns = [
 ];
 
 const authMessages = {
+  ACCOUNT_DISABLED: 'Votre compte est bloqué. Contactez PayTranche.',
   'auth/network-request-failed': 'Connexion impossible pour le moment. Vérifiez votre internet puis réessayez.',
   'auth/popup-blocked': 'La fenêtre de connexion a été bloquée. Autorisez les fenêtres popup puis réessayez.',
   'auth/popup-closed-by-user': 'Connexion annulée. Réessayez quand vous êtes prêt.',
@@ -55,6 +56,9 @@ export const getUserFriendlyError = (error, context = 'default') => {
     return 'Connexion impossible pour le moment. Vérifiez votre internet puis réessayez.';
   }
   if (status === 401) return 'Votre session a expiré. Reconnectez-vous.';
+  if (error?.response?.data?.code === 'ACCOUNT_DISABLED') {
+    return 'Votre compte est bloqué. Contactez PayTranche.';
+  }
   if (status === 403) return 'Vous n’avez pas accès à cette action.';
   if (status === 404) return 'Information introuvable.';
   if (status >= 500) return 'Service momentanément indisponible. Réessayez dans quelques instants.';
