@@ -382,6 +382,8 @@ const updateDebt = async () => {
 };
 
 const deleteDebt = async (debt) => {
+  if (actionLoadingId.value) return;
+
   if (!canModifyDebt(debt)) {
     errors.value.general = 'Cette vente a déjà un paiement. Elle ne peut plus être supprimée.';
     return;
