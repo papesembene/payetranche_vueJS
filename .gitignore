@@ -52,6 +52,7 @@ db.json
 # Build artifacts
 build/
 dist/
+public/version.json
 
 
 PRESENTATION_VIDEO_SCRIPT.md

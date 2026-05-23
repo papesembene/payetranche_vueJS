@@ -5,6 +5,7 @@ import Navbar from './components/Navbar.vue';
 import Footer from './components/Footer.vue';
 import PWAInstallPrompt from './components/PWAInstallPrompt.vue';
 import MaintenanceBanner from './components/MaintenanceBanner.vue';
+import AppUpdateWatcher from './components/AppUpdateWatcher.vue';
 import { useUser } from './composables/useUser.js';
 
 const route = useRoute();
@@ -23,6 +24,7 @@ onMounted(async () => {
     <router-view />
     <Footer v-if="showNavAndFooter" />
     <MaintenanceBanner />
+    <AppUpdateWatcher />
     <PWAInstallPrompt />
   </div>
 </template>
