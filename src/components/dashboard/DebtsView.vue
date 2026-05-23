@@ -1,6 +1,6 @@
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue';
-import { AlertTriangle, Banknote, CalendarDays, Check, ChevronDown, CreditCard, ListChecks, Plus, Search, X } from 'lucide-vue-next';
+import { AlertTriangle, Banknote, CalendarDays, Check, ChevronDown, CreditCard, ListChecks, Loader2, Plus, Search, X } from 'lucide-vue-next';
 import { clientService } from '../../services/client.service.js';
 import { installmentService } from '../../services/installment.service.js';
 import { transactionService } from '../../services/transaction.service.js';
@@ -318,6 +318,8 @@ const closeDebtModal = () => {
 };
 
 const createDebt = async () => {
+  if (loading.value) return;
+
   errors.value = {};
   const amount = Number(debtForm.value.amount || 0);
   const paidAmount = Number(debtForm.value.paidAmount || 0);
@@ -430,6 +432,8 @@ const closePlanModal = () => {
 
 const createInstallmentPlan = async () => {
   if (!selectedDebt.value) return;
+  if (actionLoadingId.value) return;
+
   errors.value = {};
 
   if (!planForm.value.count || planForm.value.count < 1) {
@@ -463,6 +467,8 @@ const buildPaymentReference = () => {
 
 const collectPayment = async () => {
   if (!selectedDebt.value) return;
+  if (actionLoadingId.value) return;
+
   errors.value = {};
   const amount = Number(paymentForm.value.amount || 0);
 
@@ -885,8 +891,22 @@ onMounted(() => {
           </section>
 
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-4">
-            <button type="button" @click="closeDebtModal" class="flex-1 px-4 py-3 border border-gray-300 text-gray-700 font-semibold rounded-xl hover:bg-gray-50">Annuler</button>
-            <button type="submit" class="flex-1 px-4 py-3 bg-teal-500 hover:bg-teal-600 text-white font-semibold rounded-xl">Créer la vente</button>
+            <button
+              type="button"
+              :disabled="loading"
+              @click="closeDebtModal"
+              class="flex-1 px-4 py-3 border border-gray-300 text-gray-700 font-semibold rounded-xl hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              Annuler
+            </button>
+            <button
+              type="submit"
+              :disabled="loading"
+              class="inline-flex flex-1 items-center justify-center gap-2 px-4 py-3 bg-teal-500 hover:bg-teal-600 text-white font-semibold rounded-xl disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <Loader2 v-if="loading" :size="18" class="animate-spin" />
+              {{ loading ? 'Création...' : 'Créer la vente' }}
+            </button>
           </div>
         </form>
       </div>
@@ -971,8 +991,22 @@ onMounted(() => {
           </div>
 
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-4">
-            <button type="button" @click="closePaymentModal" class="flex-1 px-4 py-3 border border-gray-300 text-gray-700 font-semibold rounded-xl hover:bg-gray-50">Annuler</button>
-            <button type="submit" class="flex-1 px-4 py-3 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-xl">Enregistrer</button>
+            <button
+              type="button"
+              :disabled="Boolean(actionLoadingId)"
+              @click="closePaymentModal"
+              class="flex-1 px-4 py-3 border border-gray-300 text-gray-700 font-semibold rounded-xl hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              Annuler
+            </button>
+            <button
+              type="submit"
+              :disabled="Boolean(actionLoadingId)"
+              class="inline-flex flex-1 items-center justify-center gap-2 px-4 py-3 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-xl disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <Loader2 v-if="actionLoadingId" :size="18" class="animate-spin" />
+              {{ actionLoadingId ? 'Enregistrement...' : 'Enregistrer' }}
+            </button>
           </div>
         </form>
       </div>
@@ -1019,8 +1053,22 @@ onMounted(() => {
           </div>
 
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-4">
-            <button type="button" @click="closePlanModal" class="flex-1 px-4 py-3 border border-gray-300 text-gray-700 font-semibold rounded-xl hover:bg-gray-50">Annuler</button>
-            <button type="submit" class="flex-1 px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl">Créer</button>
+            <button
+              type="button"
+              :disabled="Boolean(actionLoadingId)"
+              @click="closePlanModal"
+              class="flex-1 px-4 py-3 border border-gray-300 text-gray-700 font-semibold rounded-xl hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              Annuler
+            </button>
+            <button
+              type="submit"
+              :disabled="Boolean(actionLoadingId)"
+              class="inline-flex flex-1 items-center justify-center gap-2 px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <Loader2 v-if="actionLoadingId" :size="18" class="animate-spin" />
+              {{ actionLoadingId ? 'Création...' : 'Créer' }}
+            </button>
           </div>
         </form>
       </div>
