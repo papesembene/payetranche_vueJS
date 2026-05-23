@@ -1,6 +1,6 @@
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue';
-import { AlertTriangle, Banknote, CalendarDays, Check, ChevronDown, CreditCard, ListChecks, Loader2, Plus, Search, X } from 'lucide-vue-next';
+import { AlertTriangle, Banknote, CalendarDays, Check, ChevronDown, CreditCard, Edit3, ListChecks, Loader2, Plus, Search, Trash2, X } from 'lucide-vue-next';
 import { clientService } from '../../services/client.service.js';
 import { installmentService } from '../../services/installment.service.js';
 import { transactionService } from '../../services/transaction.service.js';
@@ -29,10 +29,12 @@ const searchQuery = ref('');
 const selectedStatus = ref('À récupérer');
 const expandedDebtIds = ref(new Set());
 const showDebtModal = ref(false);
+const showEditDebtModal = ref(false);
 const showPaymentModal = ref(false);
 const showPlanModal = ref(false);
 const selectedDebt = ref(null);
 const selectedInstallment = ref(null);
+const selectedEditDebt = ref(null);
 const errors = ref({});
 
 const debtForm = ref({
@@ -61,6 +63,12 @@ const planForm = ref({
   count: 3,
   firstDueDate: '',
   frequency: 'MONTHLY'
+});
+
+const editDebtForm = ref({
+  amount: '',
+  dueDate: '',
+  description: ''
 });
 
 const statusFilters = ['À récupérer', 'En retard', 'Payées', 'Toutes'];
@@ -203,6 +211,14 @@ const getInstallmentSummary = (debt) => {
   return { total, paid };
 };
 
+const hasPaidInstallment = (debt) => {
+  return debt.installments.some(installment => installment.remainingAmount <= 0 || Number(installment.paidAmount || 0) > 0 || installment.status === 'PAYEE');
+};
+
+const canModifyDebt = (debt) => {
+  return Number(debt.paidAmount || 0) <= 0 && !hasPaidInstallment(debt);
+};
+
 const loadDebtTimeline = async (debtId, force = false) => {
   if (!force && debtTimelines.value[debtId]) return;
 
@@ -315,6 +331,74 @@ const selectClientMode = (mode) => {
 
 const closeDebtModal = () => {
   showDebtModal.value = false;
+};
+
+const openEditDebtModal = (debt) => {
+  if (!canModifyDebt(debt)) {
+    errors.value.general = 'Cette vente a déjà un paiement. Elle ne peut plus être modifiée.';
+    return;
+  }
+
+  selectedEditDebt.value = debt;
+  editDebtForm.value = {
+    amount: debt.originalAmount || debt.amount || '',
+    dueDate: debt.dueDate ? new Date(debt.dueDate).toISOString().split('T')[0] : '',
+    description: debt.description || ''
+  };
+  errors.value = {};
+  showEditDebtModal.value = true;
+};
+
+const closeEditDebtModal = () => {
+  showEditDebtModal.value = false;
+  selectedEditDebt.value = null;
+};
+
+const updateDebt = async () => {
+  if (!selectedEditDebt.value) return;
+  if (actionLoadingId.value) return;
+
+  errors.value = {};
+  const amount = Number(editDebtForm.value.amount || 0);
+
+  if (!amount || amount <= 0) errors.value.amount = 'Montant de la vente requis';
+  if (Object.keys(errors.value).length > 0) return;
+
+  try {
+    actionLoadingId.value = `edit-${selectedEditDebt.value.id}`;
+    await transactionService.updateTransaction(selectedEditDebt.value.id, {
+      amount,
+      description: editDebtForm.value.description || 'Vente à crédit',
+      dueDate: editDebtForm.value.dueDate || null
+    });
+    await loadData();
+    emit('updated');
+    closeEditDebtModal();
+  } catch (error) {
+    errors.value.general = getUserFriendlyError(error, 'save');
+  } finally {
+    actionLoadingId.value = null;
+  }
+};
+
+const deleteDebt = async (debt) => {
+  if (!canModifyDebt(debt)) {
+    errors.value.general = 'Cette vente a déjà un paiement. Elle ne peut plus être supprimée.';
+    return;
+  }
+
+  if (!window.confirm('Supprimer cette vente à crédit ?')) return;
+
+  try {
+    actionLoadingId.value = `delete-${debt.id}`;
+    await transactionService.deleteTransaction(debt.id);
+    await loadData();
+    emit('updated');
+  } catch (error) {
+    errors.value.general = getUserFriendlyError(error, 'save');
+  } finally {
+    actionLoadingId.value = null;
+  }
 };
 
 const createDebt = async () => {
@@ -558,6 +642,10 @@ onMounted(() => {
           </button>
         </div>
       </div>
+
+      <div v-if="errors.general && !showDebtModal && !showPaymentModal && !showPlanModal && !showEditDebtModal" class="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+        {{ errors.general }}
+      </div>
     </div>
 
     <div v-if="loading" class="p-6">
@@ -640,6 +728,28 @@ onMounted(() => {
 
             <div v-else class="rounded-lg bg-green-50 px-4 py-3 text-sm font-semibold text-green-700 text-center">
               Dette totalement payée
+            </div>
+
+            <div v-if="canModifyDebt(debt)" class="mt-2 grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                :disabled="Boolean(actionLoadingId)"
+                @click="openEditDebtModal(debt)"
+                class="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+              >
+                <Edit3 :size="15" />
+                Modifier
+              </button>
+              <button
+                type="button"
+                :disabled="Boolean(actionLoadingId)"
+                @click="deleteDebt(debt)"
+                class="inline-flex items-center justify-center gap-2 rounded-lg border border-red-200 px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-50 disabled:opacity-60"
+              >
+                <Loader2 v-if="actionLoadingId === `delete-${debt.id}`" :size="15" class="animate-spin" />
+                <Trash2 v-else :size="15" />
+                Supprimer
+              </button>
             </div>
           </div>
         </div>
@@ -906,6 +1016,77 @@ onMounted(() => {
             >
               <Loader2 v-if="loading" :size="18" class="animate-spin" />
               {{ loading ? 'Création...' : 'Créer la vente' }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div v-if="showEditDebtModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-end sm:items-center justify-center z-50 sm:p-4">
+      <div class="bg-white rounded-t-2xl sm:rounded-2xl shadow-xl max-w-md w-full max-h-[92vh] overflow-y-auto">
+        <div class="sticky top-0 bg-white flex items-center justify-between p-4 sm:p-6 border-b border-gray-200">
+          <h2 class="text-xl font-bold text-gray-900">Modifier la vente</h2>
+          <button @click="closeEditDebtModal" class="p-2 hover:bg-gray-100 rounded-lg">
+            <X :size="20" class="text-gray-500" />
+          </button>
+        </div>
+
+        <form @submit.prevent="updateDebt" class="p-4 sm:p-6 space-y-4">
+          <div v-if="errors.general" class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md">
+            {{ errors.general }}
+          </div>
+
+          <div class="bg-gray-50 border border-gray-200 rounded-xl p-4">
+            <p class="font-semibold text-gray-900">{{ selectedEditDebt?.clientName }}</p>
+            <p class="text-sm text-gray-600">Aucun paiement reçu pour cette vente.</p>
+          </div>
+
+          <div>
+            <label class="block text-sm font-semibold text-gray-700 mb-2">Montant total</label>
+            <input
+              v-model="editDebtForm.amount"
+              type="number"
+              min="1"
+              class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500"
+            />
+            <p v-if="errors.amount" class="text-xs text-red-600 mt-1">{{ errors.amount }}</p>
+          </div>
+
+          <div>
+            <label class="block text-sm font-semibold text-gray-700 mb-2">Date limite</label>
+            <input
+              v-model="editDebtForm.dueDate"
+              type="date"
+              class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500"
+            />
+          </div>
+
+          <div>
+            <label class="block text-sm font-semibold text-gray-700 mb-2">Note</label>
+            <input
+              v-model.trim="editDebtForm.description"
+              type="text"
+              placeholder="Ex: Téléphone, marchandise, facture..."
+              class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500"
+            />
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-4">
+            <button
+              type="button"
+              :disabled="Boolean(actionLoadingId)"
+              @click="closeEditDebtModal"
+              class="flex-1 px-4 py-3 border border-gray-300 text-gray-700 font-semibold rounded-xl hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              Annuler
+            </button>
+            <button
+              type="submit"
+              :disabled="Boolean(actionLoadingId)"
+              class="inline-flex flex-1 items-center justify-center gap-2 px-4 py-3 bg-teal-500 hover:bg-teal-600 text-white font-semibold rounded-xl disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <Loader2 v-if="actionLoadingId" :size="18" class="animate-spin" />
+              {{ actionLoadingId ? 'Enregistrement...' : 'Enregistrer' }}
             </button>
           </div>
         </form>
