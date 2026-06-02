@@ -11,7 +11,7 @@
 const SESSION_KEY = 'paytranche_session';
 const SESSION_EXPIRY_KEY = 'paytranche_session_expiry';
 const SESSION_CHECKSUM_KEY = 'paytranche_session_checksum';
-const SESSION_DURATION = 30 * 24 * 60 * 60 * 1000; // 30 jours en millisecondes
+const SESSION_DURATION = 90 * 24 * 60 * 60 * 1000; // 90 jours en millisecondes
 
 class SessionService {
   /**
@@ -82,7 +82,7 @@ class SessionService {
    * @param {Object} userData - Les données utilisateur à persister
    * @returns {boolean} - Succès?
    */
-  static saveSession(userData) {
+  static saveSession(userData, token = localStorage.getItem('auth_token')) {
     try {
       // Valider les données d'abord
       if (!this._validateUserData(userData)) {
@@ -92,6 +92,7 @@ class SessionService {
 
       const sessionData = {
         user: userData,
+        token: typeof token === 'string' ? token : '',
         createdAt: new Date().toISOString(),
         expiresAt: new Date(Date.now() + SESSION_DURATION).toISOString(),
         version: '1.0'
@@ -248,6 +249,15 @@ class SessionService {
   static getSessionUser() {
     const session = this.getSession();
     return session ? session.user : null;
+  }
+
+  /**
+   * Obtenir le token de la session
+   * @returns {string|null}
+   */
+  static getSessionToken() {
+    const session = this.getSession();
+    return session?.token || null;
   }
 
   /**

@@ -1,6 +1,7 @@
 import { http } from './http.js';
 import { auth } from '../firebase.js';
 import { getUserFriendlyError } from '../utils/userFriendlyError.js';
+import { SessionService } from './session.service.js';
 import {
   getRedirectResult,
   FacebookAuthProvider,
@@ -107,6 +108,8 @@ class AuthService {
     const safeUser = normalizeUser(user, tenant);
     localStorage.setItem('auth_token', token);
     localStorage.setItem('auth_user', JSON.stringify(safeUser));
+    localStorage.setItem('user_data', JSON.stringify(safeUser));
+    SessionService.saveSession(safeUser, token);
     return safeUser;
   }
 
@@ -258,9 +261,10 @@ class AuthService {
   }
 
   async verifyToken() {
+    const userData = localStorage.getItem('auth_user');
+    const token = localStorage.getItem('auth_token');
+
     try {
-      const userData = localStorage.getItem('auth_user');
-      const token = localStorage.getItem('auth_token');
       if (!userData || !token) return { valid: false };
 
       const response = await http.get('/auth/me');

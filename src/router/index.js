@@ -34,6 +34,9 @@ const readStoredUser = () => {
   if (session?.user?.id) {
     localStorage.setItem('auth_user', JSON.stringify(session.user));
     localStorage.setItem('user_data', JSON.stringify(session.user));
+    if (session.token && !localStorage.getItem('auth_token')) {
+      localStorage.setItem('auth_token', session.token);
+    }
     return session.user;
   }
 

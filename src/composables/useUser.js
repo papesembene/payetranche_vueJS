@@ -397,7 +397,12 @@ const initAuth = async () => {
       // Si pas de auth_user mais session persistante existe, l'utiliser
       userData = JSON.stringify(persistedSession.user);
       localStorage.setItem('auth_user', userData);
+      if (persistedSession.token) {
+        localStorage.setItem('auth_token', persistedSession.token);
+      }
       if (import.meta.env.DEV) console.log('✅ Session PWA restaurée depuis session persistante');
+    } else if (persistedSession?.token && !localStorage.getItem('auth_token')) {
+      localStorage.setItem('auth_token', persistedSession.token);
     }
 
     if (userData) {
