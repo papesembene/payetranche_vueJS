@@ -10,7 +10,7 @@ import SettingsPage from '../views/SettingsPage.vue';
 import PaymentSuccessPage from '../views/PaymentSuccessPage.vue';
 import PaymentCancelPage from '../views/PaymentCancelPage.vue';
 import SocialCallbackPage from '../views/SocialCallbackPage.vue';
-import { canAccessPlatformAdmin, isExplicitPlatformAdmin } from '../utils/access.js';
+import { canAccessPlatformAdmin, getPostAuthPath, getSafeRedirectPath, isExplicitPlatformAdmin } from '../utils/access.js';
 import { SessionService } from '../services/session.service.js';
 
 // Navigation guard for authentication and subscription checks
@@ -79,6 +79,17 @@ const requireAuth = (to, from, next) => {
   next();
 };
 
+const redirectIfAuthenticated = (to, from, next) => {
+  const user = readStoredUser();
+
+  if (!user) {
+    next();
+    return;
+  }
+
+  next(getPostAuthPath(user, getSafeRedirectPath(to.query.redirect)));
+};
+
 const requirePlatformAdmin = (to, from, next) => {
   const user = readStoredUser();
 
@@ -99,17 +110,20 @@ const routes = [
   {
     path: '/',
     name: 'Home',
-    component: HomePage
+    component: HomePage,
+    beforeEnter: redirectIfAuthenticated
   },
   {
     path: '/login',
     name: 'Login',
-    component: LoginPage
+    component: LoginPage,
+    beforeEnter: redirectIfAuthenticated
   },
   {
     path: '/register',
     name: 'Register',
-    component: RegisterPage
+    component: RegisterPage,
+    beforeEnter: redirectIfAuthenticated
   },
   {
     path: '/auth/callback',
