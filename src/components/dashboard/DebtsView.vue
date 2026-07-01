@@ -1,9 +1,10 @@
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue';
-import { AlertTriangle, Banknote, CalendarDays, Check, ChevronDown, CreditCard, Edit3, ListChecks, Loader2, Plus, Search, Trash2, X } from 'lucide-vue-next';
+import { AlertTriangle, Banknote, CalendarDays, Check, ChevronDown, Contact, CreditCard, Edit3, ListChecks, Loader2, Plus, Search, Trash2, X } from 'lucide-vue-next';
 import { clientService } from '../../services/client.service.js';
 import { installmentService } from '../../services/installment.service.js';
 import { transactionService } from '../../services/transaction.service.js';
+import { nativeContactsService } from '../../services/nativeContacts.service.js';
 import MobileMoneyIcon from './MobileMoneyIcon.vue';
 import { getUserFriendlyError } from '../../utils/userFriendlyError.js';
 import { useUser } from '../../composables/useUser.js';
@@ -20,6 +21,7 @@ const { currentPlan } = useUser();
 
 const loading = ref(false);
 const actionLoadingId = ref(null);
+const contactLoading = ref(false);
 const clients = ref([]);
 const transactions = ref([]);
 const installments = ref([]);
@@ -34,6 +36,7 @@ const showPaymentModal = ref(false);
 const showPlanModal = ref(false);
 const selectedDebt = ref(null);
 const selectedInstallment = ref(null);
+const selectedInstallmentIds = ref([]);
 const selectedEditDebt = ref(null);
 const errors = ref({});
 
@@ -83,6 +86,7 @@ const canCreateNewClient = computed(() => maxClients.value === -1 || clients.val
 const clientLimitMessage = computed(() =>
   `Limite du plan gratuit atteinte (${clients.value.length}/${maxClients.value}). Passez au plan Pro pour ajouter un nouveau client.`
 );
+const nativeContactsAvailable = nativeContactsService.isAvailable();
 
 watch(() => props.refresh, () => {
   loadData();
@@ -223,6 +227,20 @@ const getNextInstallment = (debt) => {
   return debt.installments.find(installment => installment.remainingAmount > 0) || null;
 };
 
+const isMultipleInstallmentPayment = computed(() =>
+  !selectedInstallment.value && Boolean(selectedDebt.value?.installments?.length)
+);
+
+const unpaidSelectedDebtInstallments = computed(() =>
+  selectedDebt.value?.installments?.filter(installment => installment.remainingAmount > 0) || []
+);
+
+const selectedInstallmentsTotal = computed(() =>
+  unpaidSelectedDebtInstallments.value
+    .filter(installment => selectedInstallmentIds.value.includes(installment.id))
+    .reduce((total, installment) => total + Number(installment.remainingAmount || 0), 0)
+);
+
 const getInstallmentSummary = (debt) => {
   const total = debt.installments.length;
   const paid = debt.installments.filter(installment => installment.remainingAmount <= 0 || installment.status === 'PAYEE').length;
@@ -345,6 +363,23 @@ const selectClientMode = (mode) => {
 
   errors.value.general = '';
   debtForm.value.clientMode = mode;
+};
+
+const pickNativeContact = async () => {
+  if (contactLoading.value) return;
+
+  try {
+    contactLoading.value = true;
+    errors.value.contact = '';
+    const contact = await nativeContactsService.pickContact();
+    debtForm.value.clientName = contact.name;
+    debtForm.value.clientPhone = contact.phone;
+    errors.value.clientName = '';
+  } catch (error) {
+    errors.value.contact = error.message || 'Impossible de choisir ce contact.';
+  } finally {
+    contactLoading.value = false;
+  }
 };
 
 const closeDebtModal = () => {
@@ -508,6 +543,7 @@ const createDebt = async () => {
 const openPaymentModal = (debt, installment = null) => {
   selectedDebt.value = debt;
   selectedInstallment.value = installment;
+  selectedInstallmentIds.value = [];
   paymentForm.value = {
     amount: installment?.remainingAmount || debt.remainingAmount || debt.amount,
     method: 'WAVE',
@@ -518,10 +554,25 @@ const openPaymentModal = (debt, installment = null) => {
   showPaymentModal.value = true;
 };
 
+const openMultipleInstallmentsPaymentModal = (debt) => {
+  selectedDebt.value = debt;
+  selectedInstallment.value = null;
+  selectedInstallmentIds.value = [];
+  paymentForm.value = {
+    amount: '',
+    method: 'WAVE',
+    reference: '',
+    description: 'Paiement de plusieurs tranches'
+  };
+  errors.value = {};
+  showPaymentModal.value = true;
+};
+
 const closePaymentModal = () => {
   showPaymentModal.value = false;
   selectedDebt.value = null;
   selectedInstallment.value = null;
+  selectedInstallmentIds.value = [];
 };
 
 const openPlanModal = (debt) => {
@@ -582,9 +633,15 @@ const collectPayment = async () => {
   if (actionLoadingId.value) return;
 
   errors.value = {};
-  const amount = Number(paymentForm.value.amount || 0);
+  const amount = isMultipleInstallmentPayment.value
+    ? selectedInstallmentsTotal.value
+    : Number(paymentForm.value.amount || 0);
 
-  if (!amount || amount <= 0) errors.value.amount = 'Montant requis';
+  if (isMultipleInstallmentPayment.value && selectedInstallmentIds.value.length === 0) {
+    errors.value.installments = 'Choisissez au moins une tranche';
+  } else if (!amount || amount <= 0) {
+    errors.value.amount = 'Montant requis';
+  }
   const remainingBalance = selectedInstallment.value?.remainingAmount || selectedDebt.value.remainingAmount;
 
   if (amount > remainingBalance) {
@@ -604,6 +661,11 @@ const collectPayment = async () => {
 
     if (selectedInstallment.value) {
       await installmentService.payInstallment(selectedInstallment.value.id, paymentPayload);
+    } else if (selectedDebt.value.installments?.length > 0) {
+      await installmentService.payMultipleInstallments(selectedDebt.value.id, {
+        ...paymentPayload,
+        installmentIds: selectedInstallmentIds.value
+      });
     } else {
       await transactionService.markAsPaid(selectedDebt.value.id, paymentPayload);
     }
@@ -743,6 +805,14 @@ onMounted(() => {
               >
                 <Check :size="17" />
                 Paiement reçu
+              </button>
+              <button
+                v-if="debt.installments.length > 0"
+                @click="openMultipleInstallmentsPaymentModal(debt)"
+                class="inline-flex items-center justify-center gap-2 rounded-lg border border-green-200 px-4 py-3 text-sm font-semibold text-green-700 hover:bg-green-50"
+              >
+                <Check :size="17" />
+                Payer plusieurs tranches
               </button>
               <button
                 v-if="debt.installments.length === 0"
@@ -918,6 +988,19 @@ onMounted(() => {
             </p>
 
             <div v-if="debtForm.clientMode === 'new'" class="space-y-3">
+              <button
+                v-if="nativeContactsAvailable"
+                type="button"
+                :disabled="contactLoading"
+                @click="pickNativeContact"
+                class="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-teal-200 bg-teal-50 px-4 py-3 text-sm font-black text-teal-800 disabled:opacity-60"
+              >
+                <Loader2 v-if="contactLoading" :size="18" class="animate-spin" />
+                <Contact v-else :size="18" />
+                {{ contactLoading ? 'Ouverture des contacts...' : 'Choisir dans mes contacts' }}
+              </button>
+              <p v-if="errors.contact" class="text-xs font-semibold text-red-600">{{ errors.contact }}</p>
+
               <div>
                 <label class="block text-sm font-semibold text-gray-700 mb-2">Nom du client</label>
                 <input
@@ -1138,12 +1221,42 @@ onMounted(() => {
           <div class="bg-gray-50 border border-gray-200 rounded-xl p-4">
             <p class="font-semibold text-gray-900">{{ selectedDebt?.clientName }}</p>
             <p class="text-sm text-gray-600">
-              {{ selectedInstallment ? `Tranche ${selectedInstallment.number}` : 'Solde restant' }} :
+              {{ selectedInstallment ? `Tranche ${selectedInstallment.number}` : selectedDebt?.installments?.length > 0 ? 'Reste des tranches' : 'Solde restant' }} :
               {{ formatAmount(selectedInstallment?.remainingAmount || selectedDebt?.remainingAmount) }}
             </p>
           </div>
 
-          <div>
+          <div v-if="isMultipleInstallmentPayment">
+            <label class="block text-sm font-semibold text-gray-700 mb-2">Tranches payées maintenant</label>
+            <div class="space-y-2">
+              <label
+                v-for="installment in unpaidSelectedDebtInstallments"
+                :key="installment.id"
+                class="flex cursor-pointer items-center gap-3 rounded-lg border border-gray-200 p-3"
+                :class="{ 'border-teal-400 bg-teal-50': selectedInstallmentIds.includes(installment.id) }"
+              >
+                <input
+                  v-model="selectedInstallmentIds"
+                  type="checkbox"
+                  :value="installment.id"
+                  class="h-5 w-5 shrink-0 accent-teal-600"
+                />
+                <span class="min-w-0 flex-1">
+                  <span class="block font-bold text-gray-950">Tranche {{ installment.number }}</span>
+                  <span class="block text-sm text-gray-600">{{ formatDate(installment.dueDate) }}</span>
+                </span>
+                <span class="shrink-0 font-black text-gray-950">{{ formatAmount(installment.remainingAmount) }}</span>
+              </label>
+            </div>
+            <p v-if="errors.installments" class="text-xs text-red-600 mt-1">{{ errors.installments }}</p>
+
+            <div class="mt-3 flex items-center justify-between rounded-lg bg-teal-50 px-4 py-3">
+              <span class="text-sm font-bold text-teal-800">Total à recevoir</span>
+              <span class="text-lg font-black text-teal-950">{{ formatAmount(selectedInstallmentsTotal) }}</span>
+            </div>
+          </div>
+
+          <div v-else>
             <label class="block text-sm font-semibold text-gray-700 mb-2">Montant reçu</label>
             <input v-model="paymentForm.amount" type="number" min="1" :max="selectedInstallment?.remainingAmount || selectedDebt?.remainingAmount" class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500" />
             <p v-if="errors.amount" class="text-xs text-red-600 mt-1">{{ errors.amount }}</p>
@@ -1210,11 +1323,11 @@ onMounted(() => {
             </button>
             <button
               type="submit"
-              :disabled="Boolean(actionLoadingId)"
+              :disabled="Boolean(actionLoadingId) || (isMultipleInstallmentPayment && selectedInstallmentIds.length === 0)"
               class="inline-flex flex-1 items-center justify-center gap-2 px-4 py-3 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-xl disabled:cursor-not-allowed disabled:opacity-60"
             >
               <Loader2 v-if="actionLoadingId" :size="18" class="animate-spin" />
-              {{ actionLoadingId ? 'Enregistrement...' : 'Enregistrer' }}
+              {{ actionLoadingId ? 'Enregistrement...' : isMultipleInstallmentPayment ? `Recevoir ${formatAmount(selectedInstallmentsTotal)}` : 'Enregistrer' }}
             </button>
           </div>
         </form>

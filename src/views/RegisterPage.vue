@@ -1,7 +1,7 @@
 <script setup>
 import { onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { DollarSign } from 'lucide-vue-next';
+import { Wallet } from 'lucide-vue-next';
 import SocialAuthButtons from '../components/SocialAuthButtons.vue';
 import { useUser } from '../composables/useUser.js';
 import { authService } from '../services/auth.service.js';
@@ -92,7 +92,7 @@ onMounted(async () => {
       <div class="flex justify-center mb-8">
         <div class="bg-white rounded-2xl shadow-lg px-6 py-3 flex items-center gap-3">
           <div class="w-12 h-12 bg-teal-500 rounded-xl flex items-center justify-center">
-            <DollarSign :size="24" :stroke-width="2.5" class="text-white" />
+            <Wallet :size="24" :stroke-width="2.5" class="text-white" />
           </div>
           <span class="text-2xl font-bold text-gray-900">PayTranche</span>
         </div>

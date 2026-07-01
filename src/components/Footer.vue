@@ -1,5 +1,5 @@
 <script setup>
-import { CircleDollarSign, MessageCircle } from 'lucide-vue-next';
+import { Wallet, MessageCircle } from 'lucide-vue-next';
 
 const scrollToSection = (sectionId) => {
   document.getElementById(sectionId)?.scrollIntoView({ behavior: 'smooth' });
@@ -18,7 +18,7 @@ const openWhatsApp = () => {
         <div>
           <div class="mb-5 flex items-center gap-3">
             <div class="flex h-11 w-11 items-center justify-center rounded-lg bg-teal-600">
-              <CircleDollarSign :size="24" />
+              <Wallet :size="24" />
             </div>
             <span class="text-2xl font-black">PayTranche</span>
           </div>

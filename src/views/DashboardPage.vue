@@ -7,9 +7,10 @@ import PaymentsView from '../components/dashboard/PaymentsView.vue';
 import ClientsView from '../components/dashboard/ClientsView.vue';
 import MoneyView from '../components/dashboard/MoneyView.vue';
 import RemindersView from '../components/dashboard/RemindersView.vue';
+import BusinessView from '../components/dashboard/BusinessView.vue';
 import { useUserStore } from '../stores/user.js';
 import { notificationService } from '../services/notification.service.js';
-import { AlertTriangle, X, CreditCard, DollarSign, Users, Wallet } from 'lucide-vue-next';
+import { AlertTriangle, X, CreditCard, Banknote, Users, Wallet, ShoppingBag } from 'lucide-vue-next';
 
 const userStore = useUserStore();
 
@@ -35,7 +36,7 @@ const navItems = [
     label: 'Paiements reçus',
     mobileLabel: 'Payés',
     helper: 'Voir seulement l’argent déjà payé',
-    icon: DollarSign
+    icon: Banknote
   },
   {
     id: 'clients',
@@ -43,6 +44,13 @@ const navItems = [
     mobileLabel: 'Clients',
     helper: 'Ajouter ou retrouver une personne',
     icon: Users
+  },
+  {
+    id: 'business',
+    label: 'Ma boutique',
+    mobileLabel: 'Boutique',
+    helper: 'Suivre revenus, achats fournisseurs et dépenses',
+    icon: ShoppingBag
   },
   {
     id: 'money',
@@ -177,6 +185,7 @@ onMounted(() => {
           <DebtsView v-if="activeTab === 'debts'" :refresh="refreshStats" @updated="onPaymentsUpdated" />
           <PaymentsView v-else-if="activeTab === 'payments'" :refresh="refreshStats" @saved="onPaymentSaved" @updated="onPaymentsUpdated" />
           <ClientsView v-else-if="activeTab === 'clients'" :refresh="refreshStats" @saved="onClientSaved" />
+          <BusinessView v-else-if="activeTab === 'business'" @updated="onPaymentsUpdated" />
           <RemindersView v-else-if="activeTab === 'reminders'" :refresh="refreshStats" @updated="onPaymentsUpdated" />
           <MoneyView v-else-if="activeTab === 'money'" />
         </section>
@@ -184,7 +193,7 @@ onMounted(() => {
     </main>
 
     <nav v-if="!loading && user" class="fixed inset-x-0 bottom-0 z-40 border-t border-gray-200 bg-white lg:hidden">
-      <div class="grid grid-cols-4">
+      <div class="grid grid-cols-5">
         <button
           v-for="item in navItems"
           :key="item.id"

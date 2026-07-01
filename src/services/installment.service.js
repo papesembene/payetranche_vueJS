@@ -45,6 +45,19 @@ class InstallmentService {
     }
   }
 
+  async payMultipleInstallments(creditId, data) {
+    try {
+      const response = await http.post(`/installments/credits/${creditId}/pay-multiple`, {
+        installmentIds: data.installmentIds,
+        method: data.method,
+        reference: data.reference
+      });
+      return response.data.data;
+    } catch (error) {
+      throw new Error(getUserFriendlyError(error, 'payment'));
+    }
+  }
+
   async scanOverdue() {
     const response = await http.post('/installments/scan-overdue');
     return response.data.data.map(normalizeInstallment);

@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed, watch } from 'vue';
-import { Calendar, DollarSign, CreditCard, Plus, X, AlertCircle } from 'lucide-vue-next';
+import { Calendar, Banknote, CreditCard, Plus, X, AlertCircle } from 'lucide-vue-next';
 import { transactionService } from '../../services/transaction.service.js';
 import { clientService } from '../../services/client.service.js';
 import { useUserStore } from '../../stores/user.js';
@@ -318,7 +318,7 @@ const today = new Date().toISOString().split('T')[0];
           </label>
           <div class="relative">
             <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-              <DollarSign :size="20" class="text-gray-400" />
+              <Banknote :size="20" class="text-gray-400" />
             </div>
             <input
               id="amount"

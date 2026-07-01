@@ -11,10 +11,17 @@
     "dev": "vite",
     "prebuild": "node scripts/write-version.mjs",
     "build": "vite build",
+    "mobile:build": "node scripts/build-mobile.mjs",
+    "mobile:sync": "npm run mobile:build && cap sync android",
+    "android:open": "cap open android",
+    "android:run": "npm run mobile:sync && cap run android",
     "preview": "vite preview",
     "json-server": "json-server --watch db.json --port 3000"
   },
   "dependencies": {
+    "@capacitor-community/contacts": "^7.2.0",
+    "@capacitor/android": "^7.6.6",
+    "@capacitor/core": "^7.6.6",
     "@headlessui/vue": "^1.7.23",
     "axios": "^1.13.2",
     "firebase": "^12.8.0",
@@ -25,6 +32,7 @@
     "vue3-icons": "^0.1.13"
   },
   "devDependencies": {
+    "@capacitor/cli": "^7.6.6",
     "@tailwindcss/vite": "^4.1.18",
     "@vitejs/plugin-vue": "^6.0.2",
     "json-server": "^0.17.4",

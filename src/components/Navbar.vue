@@ -1,6 +1,6 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue';
-import { DollarSign, Menu, X } from 'lucide-vue-next';
+import { Wallet, Menu, X } from 'lucide-vue-next';
 
 const isScrolled = ref(false);
 const isMobileMenuOpen = ref(false);
@@ -47,7 +47,7 @@ onUnmounted(() => {
               isScrolled ? 'bg-teal-500' : 'bg-white'
             ]"
           >
-            <DollarSign
+            <Wallet
               :size="22"
               :stroke-width="2.5"
               :class="isScrolled ? 'text-white' : 'text-gray-800'"

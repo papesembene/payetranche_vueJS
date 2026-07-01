@@ -1,6 +1,6 @@
 <script setup>
 import { ref, onMounted, onUnmounted, watch } from 'vue';
-import { DollarSign, Check, AlertTriangle, Users } from 'lucide-vue-next';
+import { Banknote, Check, AlertTriangle, Users } from 'lucide-vue-next';
 import { analyticsService } from '../../services/analytics.service.js';
 
 const props = defineProps({
@@ -74,7 +74,7 @@ const loadStats = async () => {
           title: 'Reste à récupérer',
           value: formatAmount(totalReceivable),
           helper: 'Argent encore dû par les clients',
-          icon: DollarSign,
+          icon: Banknote,
           bgColor: 'bg-teal-100',
           iconColor: 'text-teal-600'
         },
@@ -142,35 +142,34 @@ onUnmounted(() => {
 
 <template>
   <!-- Loading State -->
-  <div v-if="loading" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-    <div v-for="i in 4" :key="i" class="bg-white rounded-lg border border-gray-200 p-5">
+  <div v-if="loading" class="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4 mb-4 lg:mb-6">
+    <div v-for="i in 4" :key="i" class="bg-white rounded-lg border border-gray-200 p-3 sm:p-5">
       <div class="animate-pulse">
-        <div class="flex items-start justify-between mb-4">
-          <div class="w-14 h-14 bg-gray-200 rounded-xl"></div>
-          <div class="w-12 h-4 bg-gray-200 rounded"></div>
+        <div class="flex items-center gap-2 mb-3">
+          <div class="h-8 w-8 sm:h-11 sm:w-11 bg-gray-200 rounded-lg"></div>
+          <div class="h-4 flex-1 bg-gray-200 rounded"></div>
         </div>
-        <div class="w-20 h-8 bg-gray-200 rounded mb-2"></div>
-        <div class="w-16 h-4 bg-gray-200 rounded"></div>
+        <div class="w-16 h-6 sm:w-20 sm:h-8 bg-gray-200 rounded"></div>
       </div>
     </div>
   </div>
 
   <!-- Loaded State -->
   <div v-else>
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4 mb-4 lg:mb-6">
       <div
         v-for="(stat, index) in stats"
         :key="index"
-        class="bg-white rounded-lg border border-gray-200 p-5"
+        class="bg-white rounded-lg border border-gray-200 p-3 sm:p-5"
       >
-        <div class="flex items-center gap-3 mb-3">
-          <div :class="['w-11 h-11 rounded-lg flex items-center justify-center', stat.bgColor]">
-            <component :is="stat.icon" :size="22" :class="stat.iconColor" />
+        <div class="flex items-center gap-2 sm:gap-3 mb-2 sm:mb-3">
+          <div :class="['w-8 h-8 sm:w-11 sm:h-11 rounded-lg flex shrink-0 items-center justify-center', stat.bgColor]">
+            <component :is="stat.icon" :size="18" :class="stat.iconColor" />
           </div>
-          <p class="text-sm font-semibold text-gray-600">{{ stat.title }}</p>
+          <p class="min-w-0 text-xs sm:text-sm font-semibold leading-tight text-gray-600">{{ stat.title }}</p>
         </div>
-        <h3 class="text-2xl font-bold text-gray-950">{{ stat.value }}</h3>
-        <p class="text-sm text-gray-500 mt-1">{{ stat.helper }}</p>
+        <h3 class="text-lg sm:text-2xl font-bold leading-tight text-gray-950">{{ stat.value }}</h3>
+        <p class="hidden sm:block text-sm text-gray-500 mt-1">{{ stat.helper }}</p>
       </div>
     </div>
   </div>

@@ -1,6 +1,6 @@
 <script setup>
 import { computed, ref } from 'vue';
-import { Bell, Settings, DollarSign, Crown, LogOut, ChevronDown, Shield, User } from 'lucide-vue-next';
+import { Bell, Settings, Wallet, Crown, LogOut, ChevronDown, Shield, User } from 'lucide-vue-next';
 import { useUser } from '../../composables/useUser.js';
 import { useRouter } from 'vue-router';
 import { canAccessPlatformAdmin } from '../../utils/access.js';
@@ -29,7 +29,7 @@ const handleLogout = async () => {
         <!-- Logo -->
         <div class="flex items-center gap-2 lg:gap-3 min-w-0">
           <div class="w-10 h-10 lg:w-12 lg:h-12 bg-teal-500 rounded-lg flex items-center justify-center shrink-0">
-            <DollarSign :size="22" :stroke-width="2.5" class="text-white" />
+            <Wallet :size="22" :stroke-width="2.5" class="text-white" />
           </div>
           <span class="text-lg lg:text-2xl font-bold text-gray-900 truncate">PayTranche</span>
         </div>
