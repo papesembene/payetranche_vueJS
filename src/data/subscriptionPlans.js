@@ -6,9 +6,9 @@ export const subscriptionPlans = {
     price: 0,
     currency: 'FCFA',
     billing: 'mensuel',
-    limits: { maxClients: 5, maxPayments: -1, maxPaymentAmount: -1 },
+    limits: { maxClients: 10, maxPayments: -1, maxPaymentAmount: -1 },
     features: ['basic_dashboard', 'client_management', 'payment_tracking'],
-    description: 'Jusqu’à 5 clients'
+    description: 'Jusqu’à 10 clients'
   },
   pro: {
     id: 'pro',

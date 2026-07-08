@@ -117,7 +117,7 @@ onMounted(async () => {
         />
 
         <div class="mt-5 rounded-xl border border-teal-100 bg-teal-50 px-4 py-3 text-sm font-semibold text-teal-800">
-          Plan gratuit inclus : jusqu’à 5 clients, sans carte bancaire.
+          Plan gratuit inclus : jusqu’à 10 clients, sans carte bancaire.
         </div>
 
         <p class="text-center text-sm text-gray-600 mt-6">

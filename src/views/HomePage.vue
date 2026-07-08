@@ -85,7 +85,7 @@ const steps = [
       <div class="mx-auto flex max-w-6xl flex-col gap-5 px-5 py-10 sm:flex-row sm:items-center sm:justify-between sm:px-8">
         <div>
           <h2 class="text-2xl font-black text-slate-950">Gratuit pour démarrer</h2>
-          <p class="mt-1 text-sm font-semibold text-slate-600">Jusqu’à 5 clients. Le plan Pro est à 3 000 FCFA/mois.</p>
+          <p class="mt-1 text-sm font-semibold text-slate-600">Jusqu’à 10 clients. Le plan Pro est à 3 000 FCFA/mois.</p>
         </div>
         <button
           class="inline-flex items-center justify-center rounded-lg bg-slate-950 px-5 py-3 text-sm font-black text-white"

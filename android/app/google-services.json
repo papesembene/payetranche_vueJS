@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "330472426848",
+    "project_id": "paytranchesenegal",
+    "storage_bucket": "paytranchesenegal.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:330472426848:android:34f982ebb7fdbd90096205",
+        "android_client_info": {
+          "package_name": "com.paytranche.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "330472426848-ar67vmfa5ni3gin3g97k9e4olgt4m4rs.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.paytranche.app",
+            "certificate_hash": "23971fd05f9e5dec2e46e41f00f1b80116d4bf19"
+          }
+        },
+        {
+          "client_id": "330472426848-gkine3e65gertj8j757ut28t4eb9117j.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDyd4yjVQhzXCDxP4s-dTOnA3mxDUZgQzU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "330472426848-gkine3e65gertj8j757ut28t4eb9117j.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

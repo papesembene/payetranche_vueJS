@@ -2,6 +2,7 @@ import { http } from './http.js';
 import { auth } from '../firebase.js';
 import { getUserFriendlyError } from '../utils/userFriendlyError.js';
 import { SessionService } from './session.service.js';
+import { Capacitor } from '@capacitor/core';
 import {
   getRedirectResult,
   FacebookAuthProvider,
@@ -84,6 +85,10 @@ const socialAuthErrorMessage = (error, providerName) => {
 };
 
 class AuthService {
+  isNativeGoogleAuthAvailable() {
+    return Capacitor.isNativePlatform();
+  }
+
   getSocialProvider(providerName) {
     if (providerName === 'facebook') {
       const provider = new FacebookAuthProvider();
@@ -212,10 +217,29 @@ class AuthService {
     return { success: true, user: safeUser };
   }
 
+  async loginWithNativeGoogle(companyName) {
+    const { FirebaseAuthentication } = await import('@capacitor-firebase/authentication');
+    const result = await FirebaseAuthentication.signInWithGoogle({
+      skipNativeAuth: true,
+      scopes: ['profile', 'email']
+    });
+
+    const idToken = result?.credential?.idToken;
+    if (!idToken) {
+      throw new Error('Connexion Google non terminée. Réessayez.');
+    }
+
+    return await this.loginWithGoogleToken(idToken, companyName);
+  }
+
   async loginWithSocial(providerName, options = {}) {
     try {
       if (providerName === 'google' && options.idToken) {
         return await this.loginWithGoogleToken(options.idToken, options.companyName);
+      }
+
+      if (providerName === 'google' && this.isNativeGoogleAuthAvailable()) {
+        return await this.loginWithNativeGoogle(options.companyName);
       }
 
       this.rememberSocialAuth(providerName, options);

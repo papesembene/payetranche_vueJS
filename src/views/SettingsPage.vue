@@ -197,7 +197,7 @@ onMounted(loadSubscription);
               <p class="text-sm font-semibold text-slate-500">Plan actuel</p>
               <h2 class="text-2xl font-black text-slate-950">{{ currentPlan.name }}</h2>
               <p class="text-sm text-slate-500">
-                {{ isPro ? `Valable jusqu’au ${formatDate(subscription?.currentPeriodEnd)}` : 'Gratuit, limité à 5 clients actifs' }}
+                {{ isPro ? `Valable jusqu’au ${formatDate(subscription?.currentPeriodEnd)}` : 'Gratuit, limité à 10 clients actifs' }}
               </p>
             </div>
             <div class="rounded-lg bg-slate-50 px-4 py-3 text-sm font-bold text-slate-700">
@@ -214,7 +214,7 @@ onMounted(loadSubscription);
             </div>
             <p class="mb-4 text-3xl font-black text-slate-950">0 FCFA</p>
             <ul class="space-y-2 text-sm text-slate-600">
-              <li class="flex items-center gap-2"><Check :size="16" class="text-teal-600" />5 clients actifs</li>
+              <li class="flex items-center gap-2"><Check :size="16" class="text-teal-600" />10 clients actifs</li>
               <li class="flex items-center gap-2"><Check :size="16" class="text-teal-600" />Dettes et paiements</li>
               <li class="flex items-center gap-2"><Check :size="16" class="text-teal-600" />Relances simples</li>
             </ul>

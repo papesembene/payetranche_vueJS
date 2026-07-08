@@ -1,5 +1,6 @@
 <script setup>
 import { computed, nextTick, onMounted, ref, watch } from "vue";
+import { Capacitor } from "@capacitor/core";
 import SocialProviderIcon from "./SocialProviderIcon.vue";
 
 const props = defineProps({
@@ -22,6 +23,7 @@ const emit = defineEmits(["select", "credential"]);
 const googleButton = ref(null);
 const googleReady = ref(false);
 const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+const isNativeApp = Capacitor.isNativePlatform();
 
 const facebookProvider = { id: "facebook", label: "Facebook" };
 const googleButtonText = computed(() => (props.mode === "register" ? "signup_with" : "continue_with"));
@@ -57,6 +59,11 @@ const loadGoogleScript = () => new Promise((resolve, reject) => {
 });
 
 const renderGoogleButton = async () => {
+  if (isNativeApp) {
+    googleReady.value = false;
+    return;
+  }
+
   if (!googleButton.value || !googleClientId) return;
 
   try {
@@ -102,9 +109,9 @@ watch(() => props.mode, () => {
       class="min-h-[48px] w-full overflow-hidden rounded-xl"
       :class="{ 'pointer-events-none opacity-60': disabled || Boolean(loadingProvider) }"
     >
-      <div ref="googleButton" class="w-full"></div>
+      <div v-if="!isNativeApp" ref="googleButton" class="w-full"></div>
       <button
-        v-if="!googleReady"
+        v-if="isNativeApp || !googleReady"
         type="button"
         :disabled="disabled || Boolean(loadingProvider)"
         class="flex min-h-[48px] w-full items-center justify-center gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-bold text-gray-900 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
